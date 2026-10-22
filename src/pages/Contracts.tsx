@@ -1,4 +1,4 @@
-import { CheckCircle2, ExternalLink, FileSignature, FileText, Lock, MessageSquare, ThumbsUp } from 'lucide-react'
+import { CheckCircle2, ExternalLink, FileSignature, FileText, Lock, MessageSquare, PenLine, ThumbsUp } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Card, SectionTitle, inputCls, type Tone } from '../components/ui/primitives'
@@ -6,7 +6,7 @@ import { COMPANY, IDS, USERS } from '../data/ids'
 import type { Contract } from '../data/types'
 import { cn, dateTime, longDate, relative, vt } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
-import { approveContract, generateContract, requestContractChanges, toggleStep } from '../store/engine'
+import { approveContract, generateContract, requestContractChanges, signContract, toggleStep } from '../store/engine'
 
 const tone: Record<Contract['status'], Tone> = { 'Not generated': 'slate', Generated: 'amber', Approved: 'green' }
 
@@ -23,7 +23,7 @@ export default function Contracts() {
   const approve = () => run((s) => (step7.status === 'pending' ? toggleStep(s, 7, USERS.director) : approveContract(s, USERS.director, 'Contracts page — Approve')))
 
   const register = [
-    { id: IDS.contract, lot: IDS.lot, buyer: t.buyerName, value: t.salePrice, status: c.status, updated: c.approvedAt ?? c.generatedAt, live: true },
+    { id: IDS.contract, lot: IDS.lot, buyer: t.buyerName, value: t.salePrice, status: c.status, updated: c.signedAt ?? c.approvedAt ?? c.generatedAt, live: true, signed: c.signature === 'Signed' },
     { id: 'CTR-LOT-024', lot: 'LOT-024', buyer: 'Priya Nair', value: 11_900_000, status: 'Generated' as const, updated: undefined, live: false },
     { id: 'CTR-LOT-023', lot: 'LOT-023', buyer: 'Jordan Lee', value: 13_200_000, status: 'Approved' as const, updated: undefined, live: false },
   ]
@@ -43,15 +43,21 @@ export default function Contracts() {
     <div className="mx-auto max-w-[1400px] p-6">
       <SectionTitle
         title="Contracts"
-        subtitle="Generated from a Google Docs template, filed to Google Drive, approved inside the Process Street run"
+        subtitle="Zap 2: populate the approved template → save draft to Drive → internal review → buyer e-signature → signed PDF filed"
         actions={
           <>
             <Button onClick={generate} disabled={!ready && c.status === 'Not generated'}>
               {ready || c.status !== 'Not generated' ? <FileSignature size={15} /> : <Lock size={15} />} {c.status === 'Not generated' ? 'Generate contract' : 'Re-run generation'}
             </Button>
-            <Button variant="primary" onClick={approve} disabled={c.status === 'Not generated'}>
-              <ThumbsUp size={15} /> {c.status === 'Approved' ? 'Re-send approval' : 'Approve contract'}
-            </Button>
+            {c.status !== 'Approved' ? (
+              <Button variant="primary" onClick={approve} disabled={c.status === 'Not generated'}>
+                <ThumbsUp size={15} /> Approve &amp; send for signature
+              </Button>
+            ) : (
+              <Button variant="primary" onClick={() => run((s) => signContract(s))} disabled={c.signature === 'Signed'}>
+                <PenLine size={15} /> {c.signature === 'Signed' ? 'Signed by buyer' : 'Simulate buyer signature'}
+              </Button>
+            )}
           </>
         }
       />
@@ -68,7 +74,7 @@ export default function Contracts() {
                 <td className="px-4 py-2 font-mono">{r.lot}</td>
                 <td className="px-4 py-2">{r.buyer}</td>
                 <td className="px-4 py-2 tabular-nums">{vt(r.value)}</td>
-                <td className="px-4 py-2"><Badge tone={tone[r.status]} dot>{r.status === 'Generated' ? 'Awaiting approval' : r.status}</Badge></td>
+                <td className="px-4 py-2"><Badge tone={tone[r.status]} dot>{r.status === 'Generated' ? 'Awaiting approval' : r.status === 'Approved' ? ('signed' in r && !r.signed ? 'Out for signature' : 'Signed') : r.status}</Badge></td>
                 <td className="px-4 py-2 text-slate-500">{r.updated ? relative(r.updated) : r.live ? '—' : 'synthetic'}</td>
               </tr>
             ))}
@@ -84,9 +90,9 @@ export default function Contracts() {
               <p className="text-sm font-semibold">{c.status === 'Not generated' ? 'Template preview' : `${t.lotId}_SaleAgreement_v${c.version}_${t.buyerName.replace(/\s+/g, '')}`}</p>
               <p className="text-xs text-slate-500">{c.template}</p>
             </div>
-            <Badge tone={tone[c.status]} dot>{c.status}</Badge>
+            <Badge tone={c.signature === 'Signed' ? 'green' : tone[c.status]} dot>{c.signature === 'Signed' ? 'Signed' : c.status === 'Approved' ? 'Out for signature' : c.status}</Badge>
             {c.driveFileId && (
-              <Link to={`/documents/gd-025-ctr?file=${c.driveFileId}`} className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">Open in Drive <ExternalLink size={11} /></Link>
+              <Link to={`/documents/gd-025-ctr?file=${c.signedFileId ?? c.driveFileId}`} className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline">Open in Drive <ExternalLink size={11} /></Link>
             )}
           </div>
           <div className="bg-slate-100 p-6">
@@ -105,7 +111,7 @@ export default function Contracts() {
               </div>
               <div className="mt-8 grid grid-cols-2 gap-8 font-sans text-xs">
                 <div className="border-t border-slate-400 pt-1">{c.status === 'Approved' ? <span className="text-emerald-700">✓ Approved by {c.approver} · {c.approvedAt && dateTime(c.approvedAt)}</span> : 'Vendor approval pending'}</div>
-                <div className="border-t border-slate-400 pt-1">Purchaser signature</div>
+                <div className="border-t border-slate-400 pt-1">{c.signature === 'Signed' ? <span className="text-emerald-700">✓ Signed by {t.buyerName} · {c.signedAt && dateTime(c.signedAt)}</span> : c.signature === 'Out for signature' ? 'Out for e-signature' : 'Purchaser signature'}</div>
               </div>
             </div>
           </div>
@@ -115,10 +121,11 @@ export default function Contracts() {
           <Card className="p-5">
             <h3 className="mb-3 font-semibold">Approval</h3>
             <ol className="space-y-3 text-sm">
-              <ApprovalStep done={c.status !== 'Not generated'} label="Generated from template" sub={c.generatedAt ? `${dateTime(c.generatedAt)} · Integration` : 'Waits for workflow step 6'} />
-              <ApprovalStep done={c.status !== 'Not generated'} label="Filed to Google Drive" sub="LOT-025 — Alex Morgan › 04 Contracts" />
-              <ApprovalStep done={c.status === 'Approved'} label={`Director approval — ${USERS.director}`} sub={c.approvedAt ? dateTime(c.approvedAt) : 'Workflow step 7 (approval task)'} />
-              <ApprovalStep done={!!state.xero.invoice} label="Milestone released to Xero" sub={state.xero.invoice ? `${state.xero.invoice.number} · ${state.xero.invoice.status}` : 'Deposit invoice drafted after approval'} />
+              <ApprovalStep done={c.status !== 'Not generated'} label="Zap 2A · Draft generated from approved template" sub={c.generatedAt ? `${dateTime(c.generatedAt)} · draft + supporting documents saved to Drive` : 'Runs when workflow step 6 is checked'} />
+              <ApprovalStep done={c.status === 'Approved'} label={`Internal review — ${USERS.director}`} sub={c.approvedAt ? dateTime(c.approvedAt) : 'Process Street approval task (step 7)'} />
+              <ApprovalStep done={c.signature !== 'Not sent'} label="Zap 2B · Approved PDF filed, sent for e-signature" sub={c.sentAt ? `${dateTime(c.sentAt)} · to ${t.email}` : 'After approval'} />
+              <ApprovalStep done={c.signature === 'Signed'} label="Zap 2C · Signed PDF filed, HubSpot deal Closed Won" sub={c.signedAt ? dateTime(c.signedAt) : 'When the buyer signs'} />
+              <ApprovalStep done={!!state.xero.invoice} label="Zap 3 · Xero draft invoice" sub={state.xero.invoice ? `${state.xero.invoice.number} · ${state.xero.invoice.status}` : 'Only when the deal is won and all rules pass'} />
             </ol>
             {c.status === 'Generated' && (
               <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">

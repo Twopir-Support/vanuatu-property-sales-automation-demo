@@ -64,8 +64,8 @@ export function Avatar({ name, size = 28, className }: { name: string; size?: nu
   )
 }
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('rounded-xl border border-slate-200 bg-white shadow-sm', className)}>{children}</div>
+export function Card({ children, className, id }: { children: ReactNode; className?: string; id?: string }) {
+  return <div id={id} className={cn('rounded-xl border border-slate-200 bg-white shadow-sm', className)}>{children}</div>
 }
 
 export function Modal({ open, onClose, title, children, footer, width = 480 }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; width?: number }) {

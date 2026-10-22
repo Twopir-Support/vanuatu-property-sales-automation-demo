@@ -1,7 +1,8 @@
 import { COMPANY, IDS, USERS } from './ids'
-import type { DemoState, DriveFile } from './types'
+import type { DemoState, DriveFile, Transaction } from './types'
+import { seedEmails, seedXeroBills } from './bills'
 
-export const STATE_VERSION = 3
+export const STATE_VERSION = 5
 
 /** Today's date at a given time, as an ISO string. Seed data is anchored to "today". */
 export function todayAt(h: number, m: number, dayOffset = 0): string {
@@ -31,18 +32,31 @@ function seedDrive(): DriveFile[] {
     { id: 'gd-tpl-price', name: 'Harbour View — Price list 2026', type: 'sheet', parentId: 'gd-templates', owner: USERS.finance, modifiedAt: todayAt(11, 40, -21), sizeKb: 36 },
     { id: 'gd-lot023', name: 'LOT-023 — Jordan Lee', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(16, 2, -9), label: 'Completed' },
     { id: 'gd-lot024', name: 'LOT-024 — Priya Nair', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(10, 18, -3), label: 'Pending approval' },
-    { id: IDS.driveFolder, name: 'LOT-025 — Alex Morgan', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(10, 4), label: 'Synced' },
     { id: 'gd-lot027', name: 'LOT-027 — Sam Tari', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(15, 22, -1) },
-    { id: 'gd-025-id', name: '01 Buyer identification', type: 'folder', parentId: IDS.driveFolder, owner: o, modifiedAt: todayAt(9, 41) },
-    { id: 'gd-025-addr', name: '02 Proof of address', type: 'folder', parentId: IDS.driveFolder, owner: o, modifiedAt: todayAt(9, 43) },
-    { id: 'gd-025-app', name: '03 Sale application', type: 'folder', parentId: IDS.driveFolder, owner: o, modifiedAt: todayAt(9, 47) },
-    { id: 'gd-025-ctr', name: '04 Contracts', type: 'folder', parentId: IDS.driveFolder, owner: o, modifiedAt: todayAt(10, 4) },
-    { id: 'gd-025-fin', name: '05 Finance', type: 'folder', parentId: IDS.driveFolder, owner: USERS.finance, modifiedAt: todayAt(10, 4) },
-    { id: 'gd-f-passport', name: 'LOT-025_Identification_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-id', owner: o, modifiedAt: todayAt(9, 41), sizeKb: 412, label: 'Received', preview: ['IDENTIFICATION DOCUMENT — SYNTHETIC PLACEHOLDER', 'Name: Alex Morgan', 'Document no.: DEMO-000000', 'Verified by: Sarah Williams'] },
-    { id: 'gd-f-address', name: 'LOT-025_ProofOfAddress_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-addr', owner: o, modifiedAt: todayAt(9, 43), sizeKb: 228, label: 'Received', preview: ['PROOF OF ADDRESS — SYNTHETIC PLACEHOLDER', 'Utility statement (demo)', 'Address: Example Street, Port Vila'] },
-    { id: 'gd-f-application', name: 'LOT-025_SaleApplication.pdf', type: 'pdf', parentId: 'gd-025-app', owner: o, modifiedAt: todayAt(9, 47), sizeKb: 186, label: 'Received', preview: ['SALE APPLICATION — SYNTHETIC', `Development: ${COMPANY.development}`, 'Lot: LOT-025', 'Offer: VT 12,500,000', 'Applicant: Alex Morgan'] },
-    { id: 'gd-f-summary', name: 'LOT-025_Transaction summary', type: 'sheet', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: todayAt(10, 4), sizeKb: 18, label: 'Synced', preview: ['Transaction TXN-HVR-025', 'HubSpot deal HS-D-3008250', 'Process Street run PS-RUN-0425'] },
-    { id: 'gd-f-plan', name: 'HVR_SitePlan_Lot025.png', type: 'image', parentId: 'gd-025-app', owner: USERS.admin, modifiedAt: todayAt(12, 15, -5), sizeKb: 1640 },
+  ]
+}
+
+
+/** Supporting documents uploaded to the Process Street run, keyed to the Drive file Zap 2A copies them to. */
+export const DOC_FILE: Record<string, string> = {
+  'doc-id': 'gd-f-passport',
+  'doc-address': 'gd-f-address',
+  'doc-application': 'gd-f-application',
+}
+
+/** The transaction folder Zap 2A creates (“find folder, create if not found”) with the run's uploads copied in. */
+export function lotFolderTree(t: Transaction, now: string): DriveFile[] {
+  return [
+    { id: IDS.driveFolder, name: `${t.lotId} — ${t.buyerName}`, type: 'folder', parentId: 'gd-hvr', owner: USERS.integration, modifiedAt: now, label: 'Synced' },
+    { id: 'gd-025-id', name: '01 Buyer identification', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
+    { id: 'gd-025-addr', name: '02 Proof of address', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
+    { id: 'gd-025-app', name: '03 Sale application', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
+    { id: 'gd-025-ctr', name: '04 Contracts', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
+    { id: 'gd-025-fin', name: '05 Finance', type: 'folder', parentId: IDS.driveFolder, owner: USERS.finance, modifiedAt: now },
+    { id: 'gd-f-passport', name: 'LOT-025_Identification_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-id', owner: USERS.integration, modifiedAt: now, sizeKb: 412, label: 'Received', preview: ['IDENTIFICATION DOCUMENT — SYNTHETIC PLACEHOLDER', 'Name: Alex Morgan', 'Document no.: DEMO-000000', 'Verified by: Sarah Williams'] },
+    { id: 'gd-f-address', name: 'LOT-025_ProofOfAddress_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-addr', owner: USERS.integration, modifiedAt: now, sizeKb: 228, label: 'Received', preview: ['PROOF OF ADDRESS — SYNTHETIC PLACEHOLDER', 'Utility statement (demo)', 'Address: Example Street, Port Vila'] },
+    { id: 'gd-f-application', name: 'LOT-025_SaleApplication.pdf', type: 'pdf', parentId: 'gd-025-app', owner: USERS.integration, modifiedAt: now, sizeKb: 186, label: 'Received', preview: ['SALE APPLICATION — SYNTHETIC', `Development: ${COMPANY.development}`, 'Lot: LOT-025', 'Offer: VT 12,500,000', 'Applicant: Alex Morgan'] },
+    { id: 'gd-f-plan', name: 'HVR_SitePlan_Lot025.png', type: 'image', parentId: 'gd-025-app', owner: USERS.admin, modifiedAt: now, sizeKb: 1640 },
   ]
 }
 
@@ -71,26 +85,26 @@ export function createSeedState(): DemoState {
       { id: 1, title: 'Buyer information collected', status: 'complete', assignee: USERS.sales, dueDate: todayAt(17, 0, -2), completedAt: todayAt(9, 35), completedBy: USERS.sales, kind: 'form', description: 'Capture buyer, lot and sale details. These form fields are the single source of truth that every downstream system reads from.' },
       { id: 2, title: 'Lot information verified', status: 'complete', assignee: USERS.admin, dueDate: todayAt(17, 0, -1), completedAt: todayAt(9, 38), completedBy: USERS.admin, kind: 'task', description: 'Confirm the lot is available on the release schedule and matches the survey plan for Harbour View Residences.' },
       { id: 3, title: 'Sale price confirmed', status: 'complete', assignee: USERS.director, dueDate: todayAt(17, 0, -1), completedAt: todayAt(9, 40), completedBy: USERS.director, kind: 'task', description: 'Check the agreed price against the 2026 price list and any approved discounts.' },
-      { id: 4, title: 'Required documents received', status: 'complete', assignee: USERS.sales, dueDate: todayAt(17, 0), completedAt: todayAt(9, 48), completedBy: USERS.sales, kind: 'documents', description: 'Collect identification, proof of address and the signed sale application. Files are filed automatically into the LOT-025 Google Drive folder.' },
-      { id: 5, title: 'CRM record synchronized', status: 'complete', assignee: USERS.integration, dueDate: todayAt(17, 0), completedAt: t0(4), completedBy: USERS.integration, kind: 'automation', description: 'Completing this step upserts the buyer contact and lot deal in HubSpot using the agreed matching rules. Re-running it never creates duplicates.' },
-      { id: 6, title: 'Contract generated', status: 'pending', assignee: USERS.sales, dueDate: todayAt(17, 0, 1), kind: 'automation', stop: true, description: 'Generate the sale agreement from the Google Docs template using the run’s form data, save it to “04 Contracts”, and request approval.' },
-      { id: 7, title: 'Contract approved', status: 'pending', assignee: USERS.director, dueDate: todayAt(17, 0, 3), kind: 'approval', stop: true, description: 'Director approval of the generated contract. Approval is the sales milestone that releases the deposit invoice to Xero.' },
-      { id: 8, title: 'Sale completion confirmed', status: 'pending', assignee: USERS.finance, dueDate: '2026-12-15T17:00:00.000Z', kind: 'task', description: 'Confirm settlement funds received and transfer documents lodged. Marks the HubSpot deal Closed Won and archives the Drive folder.' },
+      { id: 4, title: 'Required documents received', status: 'complete', assignee: USERS.sales, dueDate: todayAt(17, 0), completedAt: todayAt(9, 48), completedBy: USERS.sales, kind: 'documents', description: 'Collect identification, proof of address and the signed sale application as file uploads on this run. Zap 2A copies them into the transaction’s Google Drive folder.' },
+      { id: 5, title: 'CRM record synchronized', status: 'complete', assignee: USERS.integration, dueDate: todayAt(17, 0), completedAt: t0(4), completedBy: USERS.integration, kind: 'automation', description: 'Checking this task triggers Zap 1: find or create the buyer contact and lot deal in HubSpot using stable identifiers (Buyer ID, then email; Lot ID + Buyer ID for the deal). Re-running it never creates duplicates.' },
+      { id: 6, title: 'Contract generated', status: 'pending', assignee: USERS.sales, dueDate: todayAt(17, 0, 1), kind: 'automation', stop: true, description: 'Checking this task triggers Zap 2A: find or create the transaction folder in Google Drive, populate the approved sale-contract template, save the draft to “04 Contracts” and route it for review.' },
+      { id: 7, title: 'Contract approved', status: 'pending', assignee: USERS.director, dueDate: todayAt(17, 0, 3), kind: 'approval', stop: true, description: 'Director review of the draft. Approving triggers Zap 2B: the approved PDF is saved to Drive and sent to the buyer for e-signature. When the buyer signs, Zap 2C files the signed PDF and marks the HubSpot deal Closed Won — which triggers Zap 3 (Xero).' },
+      { id: 8, title: 'Sale completion confirmed', status: 'pending', assignee: USERS.finance, dueDate: '2026-12-15T17:00:00.000Z', kind: 'task', description: 'Confirm settlement funds received and transfer documents lodged. Records settlement on the HubSpot deal and archives the Drive folder.' },
     ],
     documents: [
-      { id: 'doc-id', name: 'Identification document', status: 'Received', driveFileId: 'gd-f-passport' },
-      { id: 'doc-address', name: 'Proof of address', status: 'Received', driveFileId: 'gd-f-address' },
-      { id: 'doc-application', name: 'Sale application', status: 'Received', driveFileId: 'gd-f-application' },
+      { id: 'doc-id', name: 'Identification document', status: 'Received' },
+      { id: 'doc-address', name: 'Proof of address', status: 'Received' },
+      { id: 'doc-application', name: 'Sale application', status: 'Received' },
       { id: 'doc-contract', name: 'Sale contract', status: 'Awaiting generation' },
     ],
     activity: [
-      { id: 'a1', at: t0(6), system: 'automation', actor: USERS.integration, text: 'Contract generation requested — waiting for “Contract generated” step' },
+      { id: 'a1', at: t0(6), system: 'automation', actor: USERS.integration, text: 'Zap 2A waiting — contract is generated when step 6 is checked' },
       { id: 'a2', at: t0(5), system: 'process-street', actor: USERS.integration, text: 'Document requirements checked — 3 of 4 received' },
       { id: 'a3', at: t0(4), system: 'hubspot', actor: USERS.integration, text: 'Lot information synchronized to HubSpot deal HS-D-3008250' },
       { id: 'a4', at: t0(3), system: 'hubspot', actor: USERS.integration, text: 'Deal record created: LOT-025 — Alex Morgan' },
       { id: 'a5', at: t0(2), system: 'hubspot', actor: USERS.integration, text: 'Buyer record matched on Buyer ID BUY-0142' },
       { id: 'a6', at: todayAt(9, 48), system: 'process-street', actor: USERS.sales, text: 'Completed “Required documents received”' },
-      { id: 'a7', at: todayAt(9, 44), system: 'drive', actor: USERS.integration, text: 'Folder “LOT-025 — Alex Morgan” provisioned with 5 sub-folders' },
+      { id: 'a7', at: todayAt(9, 44), system: 'process-street', actor: USERS.sales, text: 'Uploaded 3 supporting documents to the run (ID, proof of address, sale application)' },
       { id: 'a8', at: todayAt(9, 30), system: 'process-street', actor: USERS.sales, text: 'Run “Lot Sale — LOT-025” started from Residential Lot Sale workflow' },
     ],
     hubspot: {
@@ -108,7 +122,7 @@ export function createSeedState(): DemoState {
         { id: 'HS-D-3008210', name: 'LOT-021 — Documents', amount: 12_100_000, currency: 'VUV', pipeline: 'Lot Sales', stage: 'Documents Received', lotId: 'LOT-021', buyerId: '', project: COMPANY.development, country: 'Vanuatu', owner: USERS.sales, settlementDate: '2027-01-20', createdAt: todayAt(10, 5, -7), updatedAt: todayAt(10, 5, -2), contactId: '' },
       ],
       timeline: [
-        { id: 'h1', at: t0(6), type: 'integration', title: 'Contract generation requested', body: 'Process Street run PS-RUN-0425 queued contract generation. Waiting for step 6.', actor: USERS.integration },
+        { id: 'h1', at: t0(6), type: 'integration', title: 'Contract generation requested', body: 'Zap 2A is waiting for step 6 on Process Street run PS-RUN-0425.', actor: USERS.integration },
         { id: 'h2', at: t0(5), type: 'integration', title: 'Document requirements checked', body: 'Identification ✓  Proof of address ✓  Sale application ✓  Sale contract — awaiting generation', actor: USERS.integration },
         { id: 'h3', at: t0(4), type: 'integration', title: 'Lot information synchronized', body: 'Lot ID LOT-025 · Harbour View Residences · Settlement 15 Dec 2026', actor: USERS.integration },
         { id: 'h4', at: t0(3), type: 'integration', title: 'Deal record created or updated', body: 'Deal uniqueness rule: Lot ID + Buyer ID. 0 existing open deals found → created HS-D-3008250.', actor: USERS.integration },
@@ -138,15 +152,16 @@ export function createSeedState(): DemoState {
       status: 'Not generated',
       template: 'Residential Lot Sale Agreement — Template v3',
       comments: [],
+      signature: 'Not sent',
     },
     events: [
-      { id: 'ev-4', at: t0(6), scenario: 'Contract generation', trigger: 'HubSpot deal stage = Contract Approval', source: 'hubspot', target: 'contracts', action: 'Queue contract generation', idempotencyKey: 'contract.queue:TXN-HVR-025', status: 'blocked', durationMs: 120, result: 'Waiting: Process Street step 6 “Contract generated” not completed', payload: { transactionId: IDS.transaction, step: 6 } },
-      { id: 'ev-3', at: t0(4), scenario: 'Process Street → HubSpot upsert', trigger: 'Step 5 completed', source: 'process-street', target: 'hubspot', action: 'Upsert contact + deal', idempotencyKey: 'hs.upsert:TXN-HVR-025:seed', status: 'success', durationMs: 1840, result: 'Contact matched (HS-C-1002450) · Deal created (HS-D-3008250) · 0 duplicates', payload: { buyerId: IDS.buyer, lotId: IDS.lot, email: 'alex.morgan@example.com', amount: 12_500_000 } },
-      { id: 'ev-2', at: todayAt(9, 44), scenario: 'Drive folder provisioning', trigger: 'Process Street run started', source: 'process-street', target: 'drive', action: 'Create folder tree', idempotencyKey: 'drive.folder:TXN-HVR-025', status: 'success', durationMs: 960, result: 'Created “LOT-025 — Alex Morgan” + 5 sub-folders', payload: { parent: COMPANY.development, folder: 'LOT-025 — Alex Morgan' } },
-      { id: 'ev-1', at: todayAt(9, 30), scenario: 'Run launch', trigger: 'HubSpot deal reached Documents Received', source: 'hubspot', target: 'process-street', action: 'Start workflow run', idempotencyKey: 'ps.run:TXN-HVR-025', status: 'success', durationMs: 640, result: 'Run PS-RUN-0425 started from “Residential Lot Sale”', payload: { workflow: 'Residential Lot Sale', runName: 'Lot Sale — LOT-025' } },
+      { id: 'ev-4', at: t0(6), scenario: 'Zap 2A · Generate contract → Drive → review', trigger: 'HubSpot: deal stage = Contract Approval', source: 'hubspot', target: 'contracts', action: 'Waiting for Process Street step 6', idempotencyKey: 'contract.queue:TXN-HVR-025', status: 'blocked', durationMs: 120, result: 'Filter: waiting — step 6 “Contract generated” is not checked yet', payload: { transactionId: IDS.transaction, step: 6 } },
+      { id: 'ev-3', at: t0(4), scenario: 'Zap 1 · Lot-sale checklist → HubSpot buyer & deal', trigger: 'Process Street: step 5 checked', source: 'process-street', target: 'hubspot', action: 'Formatter · find contact (Buyer ID → email) · create/update · find deal (Lot ID + Buyer ID) · create/update', idempotencyKey: 'hs.upsert:TXN-HVR-025:seed', status: 'success', durationMs: 1840, result: 'Contact matched (HS-C-1002450) on Buyer ID · Deal created (HS-D-3008250) · 0 duplicates', payload: { buyerId: IDS.buyer, lotId: IDS.lot, email: 'alex.morgan@example.com', amount: 12_500_000 } },
     ],
-    processedKeys: ['ps.run:TXN-HVR-025', 'drive.folder:TXN-HVR-025', 'hs.upsert:TXN-HVR-025:seed'],
+    processedKeys: ['hs.upsert:TXN-HVR-025:seed'],
     settings: { autoSyncOnSave: false, simulateFailure: false, enforceStopTasks: true },
     saleCompleted: false,
+    bills: { emails: seedEmails(), xeroBills: seedXeroBills() },
+    goLive: {},
   }
 }

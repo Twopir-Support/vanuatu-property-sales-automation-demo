@@ -1,4 +1,4 @@
-export type SystemId = 'process-street' | 'hubspot' | 'xero' | 'drive' | 'automation' | 'contracts'
+export type SystemId = 'process-street' | 'hubspot' | 'xero' | 'drive' | 'automation' | 'contracts' | 'inbox'
 
 export interface Transaction {
   id: string
@@ -31,7 +31,7 @@ export interface WorkflowStep {
   description: string
 }
 
-export type DocStatus = 'Received' | 'Awaiting generation' | 'Generated' | 'Approved'
+export type DocStatus = 'Received' | 'Awaiting generation' | 'Generated' | 'Approved' | 'Signed'
 
 export interface ChecklistDocument {
   id: string
@@ -79,6 +79,8 @@ export interface HubSpotDeal {
   createdAt: string
   updatedAt: string
   contactId: string
+  /** Written back by Zap 3 once the Xero draft exists. */
+  xeroInvoice?: string
 }
 
 export const DEAL_STAGES = [
@@ -86,7 +88,7 @@ export const DEAL_STAGES = [
   'Lot Reserved',
   'Documents Received',
   'Contract Approval',
-  'Contract Approved',
+  'Out for Signature',
   'Closed Won',
 ] as const
 export type DealStage = (typeof DEAL_STAGES)[number]
@@ -110,7 +112,7 @@ export interface DriveFile {
   owner: string
   modifiedAt: string
   sizeKb?: number
-  label?: 'Received' | 'Generated' | 'Pending approval' | 'Approved' | 'Uploaded' | 'Completed' | 'Synced'
+  label?: 'Received' | 'Draft' | 'Generated' | 'Pending approval' | 'Approved' | 'Signed' | 'Uploaded' | 'Completed' | 'Synced'
   starred?: boolean
   preview?: string[]
 }
@@ -167,6 +169,11 @@ export interface Contract {
   approvedAt?: string
   approver?: string
   driveFileId?: string
+  signature: 'Not sent' | 'Out for signature' | 'Signed'
+  sentAt?: string
+  signedAt?: string
+  approvedFileId?: string
+  signedFileId?: string
   comments: { at: string; user: string; text: string }[]
 }
 
@@ -193,6 +200,51 @@ export interface DemoSettings {
   enforceStopTasks: boolean
 }
 
+export type InboxId = 'accounts' | 'site'
+
+export interface ExtractedBill {
+  supplier: string
+  supplierId: string
+  invoiceNumber: string
+  invoiceDate: string
+  dueDate: string | null
+  subtotal: number
+  tax: number
+  total: number
+  account: string
+  confidence: number
+  lines: { description: string; amount: number }[]
+}
+
+export interface InboxEmail {
+  id: string
+  inbox: InboxId
+  from: string
+  fromName: string
+  subject: string
+  snippet: string
+  receivedAt: string
+  attachment: { name: string; sizeKb: number }
+  extracted: ExtractedBill
+  status: 'New' | 'Needs review' | 'Draft bill created' | 'Duplicate'
+  billId?: string
+}
+
+export interface XeroBill {
+  id: string
+  invoiceNumber: string
+  supplier: string
+  date: string
+  dueDate: string
+  reference: string
+  status: InvoiceStatus
+  subtotal: number
+  tax: number
+  total: number
+  account: string
+  source: string
+}
+
 export interface DemoState {
   version: number
   transaction: Transaction
@@ -214,4 +266,6 @@ export interface DemoState {
   processedKeys: string[]
   settings: DemoSettings
   saleCompleted: boolean
+  bills: { emails: InboxEmail[]; xeroBills: XeroBill[] }
+  goLive: Record<string, boolean>
 }

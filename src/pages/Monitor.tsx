@@ -5,24 +5,24 @@ import type { AutomationEvent, EventStatus, SystemId } from '../data/types'
 import { cn, dateTime, time } from '../lib/format'
 import { SYSTEMS, SystemIcon } from '../lib/systems'
 import { useDemo } from '../store/DemoStore'
-import { replayEvent } from '../store/engine'
+import { replayEvent, ZAP } from '../store/engine'
 
 const statusMeta: Record<EventStatus, { tone: Tone; label: string; Icon: typeof CheckCircle2 }> = {
   success: { tone: 'green', label: 'Success', Icon: CheckCircle2 },
   duplicate: { tone: 'violet', label: 'Duplicate suppressed', Icon: ShieldCheck },
   failed: { tone: 'red', label: 'Failed', Icon: XCircle },
-  blocked: { tone: 'amber', label: 'Waiting / blocked', Icon: Hourglass },
+  blocked: { tone: 'amber', label: 'Stopped by filter', Icon: Hourglass },
 }
 
 const SCENARIOS = [
-  { name: 'Run launch', trigger: 'HubSpot deal → Documents Received', path: ['hubspot', 'process-street'] as SystemId[] },
-  { name: 'Drive folder provisioning', trigger: 'Process Street run started', path: ['process-street', 'drive'] as SystemId[] },
-  { name: 'Process Street → HubSpot upsert', trigger: 'Step 5 completed / Sync button', path: ['process-street', 'hubspot'] as SystemId[] },
-  { name: 'Contract generation', trigger: 'Step 6 completed', path: ['process-street', 'drive'] as SystemId[] },
-  { name: 'Contract approval → HubSpot stage', trigger: 'Step 7 approved', path: ['process-street', 'hubspot'] as SystemId[] },
-  { name: 'Contract approved → Xero draft invoice', trigger: 'Milestone: contract approved', path: ['hubspot', 'xero'] as SystemId[] },
-  { name: 'Sale completion', trigger: 'Step 8 completed', path: ['process-street', 'hubspot'] as SystemId[] },
-  { name: 'Xero payment → HubSpot', trigger: 'Invoice paid', path: ['xero', 'hubspot'] as SystemId[] },
+  { name: ZAP.z1, trigger: 'Process Street: step 5 checked' },
+  { name: ZAP.z2a, trigger: 'Process Street: step 6 checked' },
+  { name: ZAP.z2b, trigger: 'Process Street: step 7 approved' },
+  { name: ZAP.z2c, trigger: 'E-signature: signed' },
+  { name: ZAP.z3, trigger: 'HubSpot: deal Closed Won' },
+  { name: ZAP.z4, trigger: 'Xero: payment' },
+  { name: ZAP.z5, trigger: 'Process Street: step 8 checked' },
+  { name: ZAP.bills, trigger: 'New supplier email (later phase)' },
 ]
 
 export default function Monitor() {
@@ -38,7 +38,7 @@ export default function Monitor() {
     <div className="mx-auto max-w-[1400px] p-6">
       <SectionTitle
         title="Automation Monitor"
-        subtitle="Every simulated integration run, with idempotency keys, results and replay. In production this maps to Make.com scenario history or Zapier task history."
+        subtitle="Every simulated integration run, with idempotency keys, results and replay. In production this is the Zapier Zap history, plus a Storage by Zapier record of each processed key."
       />
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -90,7 +90,7 @@ export default function Monitor() {
         <div className="space-y-5">
           {open ? <EventDetail e={open} onReplay={() => run((s) => replayEvent(s, open.id))} /> : <Card className="p-5 text-sm text-slate-500">Select a run to see details.</Card>}
           <Card className="overflow-hidden">
-            <h3 className="border-b border-slate-200 px-5 py-3 font-semibold">Scenarios</h3>
+            <h3 className="border-b border-slate-200 px-5 py-3 font-semibold">Zaps</h3>
             <ul className="divide-y divide-slate-100">
               {SCENARIOS.map((s) => {
                 const runs = state.events.filter((e) => e.scenario === s.name)

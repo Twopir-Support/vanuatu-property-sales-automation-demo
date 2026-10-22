@@ -1,4 +1,4 @@
-import { Bell, Check, ChevronDown, ChevronRight, HelpCircle, Lock, Plus, Printer, Search, Trash2, Zap } from 'lucide-react'
+import { Bell, Check, ChevronDown, ChevronRight, CircleX, HelpCircle, Lock, Plus, Printer, Search, Trash2, Zap } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
@@ -6,7 +6,7 @@ import { IDS, USERS } from '../data/ids'
 import type { InvoiceLine, InvoiceStatus, XeroInvoice } from '../data/types'
 import { cn, date, dateTime, num, uid } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
-import { setInvoiceStatus, updateInvoiceLines } from '../store/engine'
+import { invoiceRules, setInvoiceStatus, updateInvoiceLines } from '../store/engine'
 
 const VAT = 0.15
 
@@ -23,11 +23,11 @@ const statusCls: Record<InvoiceStatus, string> = {
   Paid: 'bg-[#dcf5e3] text-[#0b6b2f]',
 }
 
-function StatusPill({ status }: { status: InvoiceStatus }) {
+export function StatusPill({ status }: { status: InvoiceStatus }) {
   return <span className={cn('inline-block rounded px-2 py-0.5 text-xs font-semibold', statusCls[status])}>{status}</span>
 }
 
-function XeroChrome({ crumbs, title, actions, children }: { crumbs: { label: string; to?: string }[]; title: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function XeroChrome({ crumbs, title, actions, children, active = 'Sales' }: { crumbs: { label: string; to?: string }[]; title: ReactNode; actions?: ReactNode; children: ReactNode; active?: string }) {
   const menu = ['Home', 'Sales', 'Purchases', 'Reporting', 'Payroll', 'Accounting', 'Tax', 'Contacts']
   return (
     <ProductFrame product="Xero">
@@ -40,7 +40,7 @@ function XeroChrome({ crumbs, title, actions, children }: { crumbs: { label: str
           </span>
           <nav className="hidden items-center lg:flex">
             {menu.map((m) => (
-              <span key={m} className={cn('rounded px-3 py-1.5', m === 'Sales' ? 'bg-xr-navdark font-semibold' : 'hover:bg-white/10')}>{m}</span>
+              <span key={m} className={cn('rounded px-3 py-1.5', m === active ? 'bg-xr-navdark font-semibold' : 'hover:bg-white/10')}>{m}</span>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-white/85">
@@ -71,9 +71,9 @@ function XeroChrome({ crumbs, title, actions, children }: { crumbs: { label: str
   )
 }
 
-const xBtn = 'inline-flex h-9 items-center gap-1.5 rounded border px-3.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
-const xPrimary = `${xBtn} border-xr-green bg-xr-green text-white hover:brightness-110`
-const xSecondary = `${xBtn} border-[#a6aeb7] bg-white text-[#000a1e] hover:bg-[#f2f4f6]`
+export const xBtn = 'inline-flex h-9 items-center gap-1.5 rounded border px-3.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+export const xPrimary = `${xBtn} border-xr-green bg-xr-green text-white hover:brightness-110`
+export const xSecondary = `${xBtn} border-[#a6aeb7] bg-white text-[#000a1e] hover:bg-[#f2f4f6]`
 
 /* ------------------------------------------------------------------ */
 
@@ -111,8 +111,9 @@ export function InvoicesList() {
             <div className="flex-1">
               <p className="font-semibold">Waiting for the correct sales milestone</p>
               <p className="text-slate-700">
-                The deposit invoice for {IDS.lot} ({IDS.xeroInvoice}) is drafted automatically only after contract {IDS.contract} is approved (Process Street step 7). Accounting is never touched by early-stage pipeline changes.
+                Zap 3 drafts the deposit invoice for {IDS.lot} ({IDS.xeroInvoice}) only when the HubSpot deal is <b>Closed Won</b> and every business rule below passes. Early pipeline changes never touch accounting.
               </p>
+              <RulesList />
             </div>
             <Link to="/workflow?step=7" className={xSecondary}>Go to approval step</Link>
           </div>
@@ -177,7 +178,8 @@ export function InvoiceEditor() {
         <div className="flex flex-col items-center px-6 py-20 text-center">
           <Lock size={40} className="text-slate-400" />
           <p className="mt-3 text-lg font-semibold">Not created yet</p>
-          <p className="max-w-md text-sm text-slate-600">Xero is waiting for the “Contract approved” milestone. Approve the contract in the workflow to create this draft invoice automatically.</p>
+          <p className="max-w-md text-sm text-slate-600">Zap 3 creates this draft only when the HubSpot deal is won and every rule passes:</p>
+          <div className="mt-3 w-full max-w-md text-left"><RulesList /></div>
           <Link to="/workflow?step=7" className={cn(xPrimary, 'mt-4')}>Open step 7 — Contract approved</Link>
         </div>
       </XeroChrome>
@@ -219,7 +221,7 @@ export function InvoiceEditor() {
     >
       <div className="space-y-4 p-6">
         <div className="flex items-center gap-2 rounded border border-[#d9ccf5] bg-[#f6f2ff] px-4 py-2 text-xs text-[#4b2a99]">
-          <Zap size={14} /> Created automatically from HubSpot deal <Link className="font-semibold underline" to="/crm/deal">{IDS.hubspotDeal}</Link> when contract {IDS.contract} was approved · idempotency key <code>xero.invoice:{IDS.transaction}:deposit</code>
+          <Zap size={14} /> Created by Zap 3 when HubSpot deal <Link className="font-semibold underline" to="/crm/deal">{IDS.hubspotDeal}</Link> was won (contract {IDS.contract} approved and signed) · Storage key <code>xero.invoice:{IDS.transaction}:deposit</code>
         </div>
 
         <StatusFlow status={inv.status} />
@@ -346,4 +348,19 @@ function XField({ label, children, className }: { label: string; children: React
 
 function Read({ v }: { v: string }) {
   return <div className="rounded border border-[#a6aeb7] bg-[#f6f7f8] px-2.5 py-1.5 text-sm">{v}</div>
+}
+
+function RulesList() {
+  const { state } = useDemo()
+  return (
+    <ul className="mt-2 space-y-1 text-xs">
+      {invoiceRules(state).map((r) => (
+        <li key={r.label} className="flex items-center gap-2">
+          {r.pass ? <Check size={14} className="text-xr-green" /> : <CircleX size={14} className="text-rose-500" />}
+          <span className={r.pass ? 'text-slate-700' : 'font-medium text-slate-900'}>{r.label}</span>
+          <span className="text-slate-500">· {r.detail}</span>
+        </li>
+      ))}
+    </ul>
+  )
 }

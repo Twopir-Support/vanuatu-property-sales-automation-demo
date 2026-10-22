@@ -28,8 +28,10 @@ export function integrationStatuses(s: DemoState): IntegrationStatus[] {
 
   const c = s.contract
   const contract: IntegrationStatus =
-    c.status === 'Approved'
-      ? { key: 'contract', system: 'contracts', label: 'Contract generation', status: 'Approved', detail: `${IDS.contract} v${c.version} approved by ${c.approver}`, tone: 'green' }
+    c.signature === 'Signed'
+      ? { key: 'contract', system: 'contracts', label: 'Contract generation', status: 'Signed', detail: `${IDS.contract} v${c.version} approved by ${c.approver} · signed by buyer`, tone: 'green' }
+      : c.status === 'Approved'
+      ? { key: 'contract', system: 'contracts', label: 'Contract generation', status: 'Out for signature', detail: `${IDS.contract} v${c.version} approved by ${c.approver} · waiting for buyer`, tone: 'blue' }
       : c.status === 'Generated'
         ? { key: 'contract', system: 'contracts', label: 'Contract generation', status: 'Generated · awaiting approval', detail: `${IDS.contract} v${c.version} in Drive › 04 Contracts`, tone: 'blue' }
         : { key: 'contract', system: 'contracts', label: 'Contract generation', status: 'Waiting', detail: 'Runs when step 6 “Contract generated” is completed', tone: 'slate' }
@@ -37,15 +39,15 @@ export function integrationStatuses(s: DemoState): IntegrationStatus[] {
   const drive: IntegrationStatus = s.saleCompleted
     ? { key: 'drive', system: 'drive', label: 'Google Drive', status: 'Archived', detail: 'Folder labelled Completed', tone: 'green' }
     : c.driveFileId
-      ? { key: 'drive', system: 'drive', label: 'Google Drive', status: 'Ready · contract filed', detail: 'LOT-025 — Alex Morgan › 04 Contracts', tone: 'green' }
-      : { key: 'drive', system: 'drive', label: 'Google Drive', status: 'Ready', detail: 'Folder “LOT-025 — Alex Morgan” provisioned · 3 files', tone: 'green' }
+      ? { key: 'drive', system: 'drive', label: 'Google Drive', status: c.signedFileId ? 'Signed contract filed' : c.approvedFileId ? 'Approved contract filed' : 'Draft contract filed', detail: 'LOT-025 — Alex Morgan › 04 Contracts + supporting documents', tone: 'green' }
+      : { key: 'drive', system: 'drive', label: 'Google Drive', status: 'Ready', detail: 'Zap 2A creates the transaction folder and files the draft + supporting documents', tone: 'green' }
 
   const inv = s.xero.invoice
   const xero: IntegrationStatus = lastFailed(s, 'xero')
     ? { key: 'xero', system: 'xero', label: 'Xero', status: 'Invoice creation failed', detail: 'Retry from the Automation Monitor', tone: 'red' }
     : inv
       ? { key: 'xero', system: 'xero', label: 'Xero', status: `${inv.number} · ${inv.status}`, detail: `Reference ${inv.reference}`, tone: inv.status === 'Paid' ? 'green' : 'blue' }
-      : { key: 'xero', system: 'xero', label: 'Xero', status: 'Waiting for the correct sales milestone', detail: 'Deposit invoice is drafted only after “Contract approved”', tone: 'slate' }
+      : { key: 'xero', system: 'xero', label: 'Xero', status: 'Waiting for the correct sales milestone', detail: 'Zap 3 drafts the invoice only when the deal is won and the contract is approved and signed', tone: 'slate' }
 
   return [hubspot, contract, drive, xero]
 }

@@ -9,13 +9,23 @@ import { SYSTEMS, SystemIcon } from '../lib/systems'
 import { useDemo } from '../store/DemoStore'
 import { hubspotHasPendingChanges } from '../store/engine'
 
+const SCOPE: { ask: string; links: [string, string][] }[] = [
+  { ask: 'Flow 1 — Process Street checklist → HubSpot find-or-create buyer & deal', links: [['Workflow', '/workflow?step=1'], ['Zap 1', '/zaps?zap=z1'], ['HubSpot deal', '/crm/deal']] },
+  { ask: 'Flow 2 — Contract from approved template → review → signature → Google Drive', links: [['Zap 2A–2C', '/zaps?zap=z2a'], ['Contracts', '/contracts'], ['Drive folder', `/documents/${IDS.driveFolder}`]] },
+  { ask: 'Flow 3 — Deal won → Xero draft invoice, only when rules are met', links: [['Zap 3', '/zaps?zap=z3'], ['Xero', '/accounting']] },
+  { ask: 'Test end to end with test records before go-live', links: [['Testing & Go-live', '/testing'], ['Automation Monitor', '/monitor']] },
+  { ask: 'Document what is built so the team can maintain it', links: [['Documentation', '/docs'], ['Integration Design', '/design']] },
+  { ask: 'Later phase — supplier invoices from two shared inboxes → Xero draft bills', links: [['Supplier Bills', '/bills'], ['Zap 6', '/zaps?zap=z6']] },
+]
+
 function useNextAction() {
   const { state } = useDemo()
   if (hubspotHasPendingChanges(state)) return { label: 'Sync the latest buyer data to HubSpot', to: '/workflow?step=5', cta: 'Open step 5' }
   const step = state.steps.find((s) => s.status === 'pending')
   if (!step) return { label: 'Sale complete — review the Automation Monitor', to: '/monitor', cta: 'Open monitor' }
   if (step.id === 6) return { label: 'Generate the sale contract for LOT-025', to: '/workflow?step=6', cta: 'Open step 6' }
-  if (step.id === 7) return { label: 'Director approval of contract CTR-LOT-025', to: '/workflow?step=7', cta: 'Open approval' }
+  if (step.id === 7) return { label: 'Director review of contract CTR-LOT-025 (Zap 2B sends it for signature)', to: '/workflow?step=7', cta: 'Open approval' }
+  if (step.id === 8 && state.contract.signature !== 'Signed') return { label: 'Buyer signs the contract → deal won → Zap 3 drafts the Xero invoice', to: '/contracts', cta: 'Open contract' }
   if (step.id === 8) return { label: 'Confirm settlement and complete the sale', to: '/workflow?step=8', cta: 'Open step 8' }
   return { label: `Complete “${step.title}”`, to: `/workflow?step=${step.id}`, cta: 'Open step' }
 }
@@ -37,9 +47,9 @@ export default function Overview() {
   const journey = [
     { system: 'process-street' as const, label: 'Workflow run', id: IDS.processStreetRun, to: '/workflow', status: `${done} of 8 steps`, done: done === 8 },
     { system: 'hubspot' as const, label: 'CRM deal', id: IDS.hubspotDeal, to: '/crm/deal', status: deal.stage, done: !hubspotHasPendingChanges(state) },
-    { system: 'contracts' as const, label: 'Sale contract', id: IDS.contract, to: '/contracts', status: state.contract.status, done: state.contract.status === 'Approved' },
-    { system: 'drive' as const, label: 'Drive folder', id: IDS.driveFolder, to: `/documents/${IDS.driveFolder}`, status: state.saleCompleted ? 'Archived' : 'Provisioned', done: true },
-    { system: 'xero' as const, label: 'Deposit invoice', id: IDS.xeroInvoice, to: '/accounting/invoice', status: state.xero.invoice?.status ?? 'Waiting for milestone', done: !!state.xero.invoice },
+    { system: 'contracts' as const, label: 'Sale contract', id: IDS.contract, to: '/contracts', status: state.contract.signature === 'Signed' ? 'Signed' : state.contract.status === 'Approved' ? 'Out for signature' : state.contract.status, done: state.contract.signature === 'Signed' },
+    { system: 'drive' as const, label: 'Drive folder', id: IDS.driveFolder, to: `/documents/${IDS.driveFolder}`, status: state.saleCompleted ? 'Archived' : state.contract.signedFileId ? 'Signed contract filed' : state.contract.driveFileId ? 'Draft contract filed' : 'Created by Zap 2A', done: !!state.contract.driveFileId },
+    { system: 'xero' as const, label: 'Deposit invoice', id: IDS.xeroInvoice, to: '/accounting/invoice', status: state.xero.invoice?.status ?? 'Waits for deal won', done: !!state.xero.invoice },
   ]
 
   return (
@@ -158,10 +168,10 @@ export default function Overview() {
         <Card>
           <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold">Pipeline by stage</h2></div>
           <ul className="space-y-3 px-5 py-4">
-            {['Enquiry', 'Lot Reserved', 'Documents Received', 'Contract Approval', 'Contract Approved', 'Closed Won'].map((stage) => {
+            {['Enquiry', 'Lot Reserved', 'Documents Received', 'Contract Approval', 'Out for Signature', 'Closed Won'].map((stage) => {
               const ds = deals.filter((d) => d.stage === stage)
               const amt = ds.reduce((a, d) => a + d.amount, 0)
-              const max = Math.max(...['Enquiry', 'Lot Reserved', 'Documents Received', 'Contract Approval', 'Contract Approved', 'Closed Won'].map((st) => deals.filter((d) => d.stage === st).reduce((a, d) => a + d.amount, 0)), 1)
+              const max = Math.max(...['Enquiry', 'Lot Reserved', 'Documents Received', 'Contract Approval', 'Out for Signature', 'Closed Won'].map((st) => deals.filter((d) => d.stage === st).reduce((a, d) => a + d.amount, 0)), 1)
               return (
                 <li key={stage}>
                   <div className="mb-1 flex justify-between text-xs"><span>{stage} <span className="text-slate-400">({ds.length})</span></span><span className="tabular-nums text-slate-600">{vt(amt)}</span></div>
@@ -173,6 +183,24 @@ export default function Overview() {
           <p className="border-t border-slate-100 px-5 py-2.5 text-[11px] text-slate-500">Last refreshed {dateTime(new Date().toISOString())} · synthetic data</p>
         </Card>
       </div>
+
+      {/* Engagement scope → where it is shown */}
+      <Card className="mt-5 overflow-hidden">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <h2 className="font-semibold">What the client asked for → where it is in this demo</h2>
+          <p className="text-xs text-slate-500">Middleware: Zapier · native features used where they fit</p>
+        </div>
+        <ul className="grid gap-px bg-slate-100 md:grid-cols-2 xl:grid-cols-3">
+          {SCOPE.map((sc) => (
+            <li key={sc.ask} className="bg-white px-5 py-3">
+              <p className="text-sm font-medium">{sc.ask}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {sc.links.map(([label, to]) => <Link key={to + label} to={to} className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs text-brand-700 hover:bg-brand-100">{label} →</Link>)}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   )
 }

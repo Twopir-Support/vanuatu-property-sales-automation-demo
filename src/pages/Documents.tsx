@@ -50,6 +50,8 @@ const typeIcon: Record<DriveFile['type'], { Icon: typeof Folder; cls: string; la
 
 const labelCls: Record<NonNullable<DriveFile['label']>, string> = {
   Received: 'bg-[#e6f4ea] text-[#137333]',
+  Draft: 'bg-[#f1f3f4] text-[#3c4043]',
+  Signed: 'bg-[#e6f4ea] text-[#0d652d] font-semibold',
   Generated: 'bg-[#e8f0fe] text-[#1967d2]',
   'Pending approval': 'bg-[#fef7e0] text-[#b06000]',
   Approved: 'bg-[#e6f4ea] text-[#137333]',
@@ -75,13 +77,14 @@ export default function Documents() {
   const [params, setParams] = useSearchParams()
   const previewId = params.get('file')
   const files = state.drive.files
-  const folder = files.find((f) => f.id === folderId) ?? files.find((f) => f.id === IDS.driveFolder)!
+  // The LOT-025 folder only exists once Zap 2A has run; fall back to the development folder.
+  const folder = files.find((f) => f.id === folderId) ?? files.find((f) => f.id === IDS.driveFolder) ?? files.find((f) => f.id === 'gd-hvr')!
   const children = files.filter((f) => f.parentId === folder.id)
   const folders = children.filter((f) => f.type === 'folder').sort((a, b) => a.name.localeCompare(b.name))
   const docs = children.filter((f) => f.type !== 'folder').sort((a, b) => a.name.localeCompare(b.name))
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [selected, setSelected] = useState<string | null>(null)
-  const [details, setDetails] = useState(true)
+  const [details, setDetails] = useState(false)
   const [menu, setMenu] = useState(false)
   const [newFolder, setNewFolder] = useState<string | null>(null)
   const [uploads, setUploads] = useState<{ name: string; done: boolean }[]>([])
@@ -248,17 +251,17 @@ export default function Documents() {
                           <td className="py-2 pl-3">
                             <span className="flex items-center gap-3.5">
                               <FileIcon type={f.type} />
-                              <button onClick={(e) => { e.stopPropagation(); open(f) }} className="truncate text-left font-medium hover:underline">{f.name}</button>
+                              <button onClick={(e) => { e.stopPropagation(); open(f) }} className="pr-4 text-left font-medium break-all hover:underline">{f.name}</button>
                               {f.starred && <Star size={13} className="fill-gd-muted text-gd-muted" />}
                             </span>
                           </td>
-                          <td className="hidden py-2 lg:table-cell">
+                          <td className="hidden py-2 pr-4 lg:table-cell">
                             <span className="flex items-center gap-2 whitespace-nowrap">
                               <span className="flex size-6 items-center justify-center rounded-full bg-teal-700 text-[10px] text-white">{f.owner === 'Shared drive' ? 'SD' : initials(f.owner)}</span>
                               {f.owner === 'Sarah Williams' ? 'me' : f.owner}
                             </span>
                           </td>
-                          <td className="hidden py-2 text-gd-muted md:table-cell">{driveDate(f.modifiedAt)}</td>
+                          <td className="hidden py-2 pr-4 whitespace-nowrap text-gd-muted md:table-cell">{driveDate(f.modifiedAt)}</td>
                           <td className="hidden py-2 text-gd-muted xl:table-cell">{f.type === 'folder' ? '—' : sizeLabel(f.sizeKb)}</td>
                           <td className="py-2">{f.label ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', labelCls[f.label])}>{f.label}</span> : <span className="text-gd-muted">—</span>}</td>
                           <td className="py-2 pr-2 text-right">

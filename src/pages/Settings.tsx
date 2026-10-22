@@ -1,28 +1,18 @@
 import { KeyRound, Plug, RotateCcw } from 'lucide-react'
 import { Badge, Button, Card, SectionTitle } from '../components/ui/primitives'
+import { FIELD_MAPPING as MAPPING } from '../data/mapping'
 import type { DemoSettings } from '../data/types'
 import { SystemIcon } from '../lib/systems'
 import { useDemo } from '../store/DemoStore'
 
 const CONNECTIONS = [
-  { system: 'process-street' as const, name: 'Process Street', scope: 'Workflow runs, form fields, task completion webhooks', auth: 'API key (stored in Make/Zapier vault)' },
+  { system: 'process-street' as const, name: 'Process Street', scope: 'Workflow runs, form fields, task completion webhooks', auth: 'API key (Zapier app connection)' },
   { system: 'hubspot' as const, name: 'HubSpot CRM', scope: 'Contacts, deals, associations, timeline events', auth: 'Private app token / OAuth' },
   { system: 'drive' as const, name: 'Google Drive & Docs', scope: 'Shared drive folders, template merge, file labels', auth: 'Google OAuth (service account)' },
   { system: 'xero' as const, name: 'Xero', scope: 'Contacts and draft invoices only', auth: 'Xero OAuth 2.0' },
-  { system: 'automation' as const, name: 'Make.com or Zapier', scope: 'Orchestration, retries, error alerts', auth: 'Workspace account' },
+  { system: 'automation' as const, name: 'Zapier (middleware)', scope: 'Zaps, filters, Storage by Zapier, Zap history, error alerts', auth: 'Team account owned by Pacific Horizon' },
 ]
 
-const MAPPING = [
-  ['Buyer name', 'firstname + lastname', 'Contact name', '{{buyer_name}}'],
-  ['Email', 'email (normalised)', 'Email', '{{buyer_email}}'],
-  ['Phone', 'phone', 'Phone', '—'],
-  ['Buyer ID', 'buyer_id (unique)', 'Account number', '{{buyer_id}}'],
-  ['Lot ID', 'lot_id (deal key)', 'Invoice reference', '{{lot_id}}'],
-  ['Project', 'property', 'Line description', '{{project}}'],
-  ['Sale price', 'amount', 'Deposit line = 10%', '{{sale_price}}'],
-  ['Sales representative', 'hubspot_owner_id', '—', '—'],
-  ['Settlement date', 'closedate / settlement_date', '—', '{{settlement_date}}'],
-]
 
 export default function Settings() {
   const { state, run, reset } = useDemo()

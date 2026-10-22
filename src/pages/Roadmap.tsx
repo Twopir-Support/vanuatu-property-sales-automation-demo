@@ -28,9 +28,9 @@ const IDEAS: Idea[] = [
 ]
 
 const PHASES = [
-  { n: 1, name: 'Foundation', when: 'Weeks 1–4', text: 'Core integrations live: Process Street ↔ HubSpot upsert, Drive folder provisioning, contract generation, milestone-gated Xero invoices, monitoring and alerting.' },
-  { n: 2, name: 'AI assistance', when: 'Weeks 5–8', text: 'Human-in-the-loop AI on documents, contracts and buyer communications using OpenAI or Claude via Make.com / Zapier.' },
-  { n: 3, name: 'Optimisation', when: 'Weeks 9–12', text: 'Reconciliation support, executive briefings, and measured tuning based on run history.' },
+  { n: 1, name: 'Go-live: lot sales', when: 'Weeks 1–4', text: 'Zaps 1–3 live before the subdivision launch: Process Street → HubSpot, contract generation, review and e-signature into Drive, and deal won → Xero draft invoice. Tested end to end with test records; runbook handed over.' },
+  { n: 2, name: 'Supplier bills', when: 'Weeks 5–8', text: 'Supplier invoices from the two shared inboxes become Xero draft bills, with a duplicate check across both inboxes and a review queue.' },
+  { n: 3, name: 'AI assistance', when: 'Weeks 9–12', text: 'Human-in-the-loop AI on documents, contracts and buyer communications via Zapier (AI by Zapier or a direct OpenAI / Claude step).' },
 ]
 
 export default function Roadmap() {

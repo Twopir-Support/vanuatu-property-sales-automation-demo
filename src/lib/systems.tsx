@@ -1,4 +1,4 @@
-import { Bot, CheckSquare, FileSignature, FolderOpen, Receipt, Users } from 'lucide-react'
+import { Bot, CheckSquare, FileSignature, FolderOpen, Inbox, Receipt, Users } from 'lucide-react'
 import type { SystemId } from '../data/types'
 
 export const SYSTEMS: Record<SystemId, { name: string; short: string; color: string; bg: string; Icon: typeof Bot; route: string }> = {
@@ -6,8 +6,9 @@ export const SYSTEMS: Record<SystemId, { name: string; short: string; color: str
   hubspot: { name: 'HubSpot', short: 'CRM', color: 'text-orange-600', bg: 'bg-orange-50', Icon: Users, route: '/crm/deal' },
   xero: { name: 'Xero', short: 'Accounting', color: 'text-sky-600', bg: 'bg-sky-50', Icon: Receipt, route: '/accounting' },
   drive: { name: 'Google Drive', short: 'Documents', color: 'text-emerald-600', bg: 'bg-emerald-50', Icon: FolderOpen, route: '/documents' },
-  automation: { name: 'Make / Zapier', short: 'Automation', color: 'text-violet-600', bg: 'bg-violet-50', Icon: Bot, route: '/monitor' },
+  automation: { name: 'Zapier', short: 'Zapier', color: 'text-violet-600', bg: 'bg-violet-50', Icon: Bot, route: '/zaps' },
   contracts: { name: 'Contracts', short: 'Contracts', color: 'text-teal-700', bg: 'bg-teal-50', Icon: FileSignature, route: '/contracts' },
+  inbox: { name: 'Shared inboxes', short: 'Inbox', color: 'text-rose-600', bg: 'bg-rose-50', Icon: Inbox, route: '/bills' },
 }
 
 export function SystemIcon({ system, size = 14 }: { system: SystemId; size?: number }) {
