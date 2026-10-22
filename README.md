@@ -28,8 +28,10 @@ HubSpot's Xero data-sync app supports six currencies: USD, CAD, EUR, GBP, AUD an
 
 Screenshots show synthetic data at 1440 × 900. They were captured from the running app while it walked through Flows 1 → 2 → 3 with the guided demo.
 
-### Demo control center (our own navigation — not a vendor product)
-![Control center](docs/screenshots/01-control-center.png)
+### Demo control center and navigation (our own pages — not a vendor product)
+| Control center | “Switch app” menu (replaces the sidebar) |
+|---|---|
+| ![Control center](docs/screenshots/01-control-center.png) | ![Switch app](docs/screenshots/30-switch-app-menu.png) |
 
 ### Process Street-style workflow run
 | Run form (step 1) | Step 6 with comments, attachments and run details |
@@ -108,13 +110,13 @@ Requires Node 18+. The build is a static site with hash routing, so `dist/` can 
 
 ## Interview walkthrough
 
-The quickest way in is **Guide** in the sidebar footer, or **Start guided demo** on the control center. A bar at the bottom walks through 14 steps. Each step opens the right screen, shows the line to say, and has a button that runs that step's Zap through the real engine:
+The quickest way in is **Guide** in the yellow demo banner, or **Start guided demo** on the control center. A bar at the bottom walks through 14 steps. Each step opens the right screen, shows the line to say, and has a button that runs that step's Zap through the real engine:
 
 1. Control center → 2. Process Street CRM task (Zap 1) → 3. Zap 1 in the editor → 4. HubSpot buyer and deal matched → 5. Step 6 (Zap 2A) → 6. Contract draft → 7. Drive folder and documents → 8. Internal approval (Zap 2B) → 9. Buyer e-signature (Zap 2C) → 10. Deal Closed Won → 11. Zap 3 validation → 12. Xero draft invoice → 13. Automation Monitor → 14. AI roadmap.
 
-**Navigation:** product screens are shown full-width with no demo sidebar, like the real apps. Move between them with **Switch app** in the yellow demo banner. The sidebar appears only on the demo's own pages (control center, monitor, testing, docs). It is demo navigation, not a vendor product.
+**Navigation:** there is no demo sidebar. Every screen is shown full width, like the real apps. Move between screens with **Switch app** on the left of the yellow demo banner; **Guide**, **Interview** and **Reset** are on its right. This is demo navigation only, not part of any product.
 
-**Interview Demo Mode** (sidebar footer) locks the laptop layout, opens the guide, and hides development-only controls: reset, uncomplete and the idempotency re-run buttons. The DEMO ENVIRONMENT banner stays.
+**Interview Demo Mode** (banner) locks the laptop layout, opens the guide, and hides development-only controls: reset, uncomplete and the idempotency re-run buttons. The DEMO ENVIRONMENT banner stays.
 
 Things worth showing beyond the main flow:
 - **Guardrail:** drag the HubSpot deal to **Closed Won** before signature. The confirmation explains that Zap 3 will run, and its filter then stops it. Xero is untouched.

@@ -1,107 +1,125 @@
 import {
-  ChevronDown,
   Activity,
-  ChevronsLeft,
-  PlayCircle,
-  Presentation,
   BookOpen,
-  FlaskConical,
-  Inbox,
-  Network,
-  Zap,
   BrainCircuit,
   CheckSquare,
+  ChevronDown,
   FileSignature,
+  FlaskConical,
   FolderOpen,
+  Inbox,
   LayoutDashboard,
   Map,
-  Menu,
+  Network,
+  PlayCircle,
+  Presentation,
   Receipt,
   RotateCcw,
   Settings,
   ShieldAlert,
   Users,
-  X,
+  Zap,
 } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { COMPANY } from '../../data/ids'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../../lib/format'
 import { useDemo } from '../../store/DemoStore'
-import { hubspotHasPendingChanges } from '../../store/engine'
 import { Toaster } from '../ui/Toaster'
-import { ActionMenu, ConfirmDialog } from '../ui/overlays'
+import { ConfirmDialog } from '../ui/overlays'
 import { DemoGuide } from './DemoGuide'
 
 type NavItem = { to: string; label: string; Icon: typeof Activity; sub?: string; end?: boolean }
-const NAV: { group?: string; items: NavItem[] }[] = [
-  { items: [
-    { to: '/', label: 'Overview', Icon: LayoutDashboard, end: true },
+const NAV: { group: string; items: NavItem[] }[] = [
+  { group: 'Demo pages', items: [
+    { to: '/', label: 'Overview', sub: 'Demo control center', Icon: LayoutDashboard, end: true },
     { to: '/lots', label: 'Lot Sales', Icon: Map },
   ] },
-  { group: 'Sales systems', items: [
-    { to: '/workflow', label: 'Workflow', sub: 'Process Street', Icon: CheckSquare },
-    { to: '/crm', label: 'CRM', sub: 'HubSpot', Icon: Users },
-    { to: '/contracts', label: 'Contracts', sub: 'Template · review · e-signature', Icon: FileSignature },
-    { to: '/documents', label: 'Documents', sub: 'Google Drive', Icon: FolderOpen },
-    { to: '/accounting', label: 'Accounting', sub: 'Xero', Icon: Receipt },
+  { group: 'Product screens (simulated)', items: [
+    { to: '/workflow', label: 'Process Street', sub: 'Workflow run', Icon: CheckSquare },
+    { to: '/crm/deal', label: 'HubSpot', sub: 'Deal record', Icon: Users },
+    { to: '/contracts', label: 'Contracts', sub: 'Generate · approval', Icon: FileSignature },
+    { to: '/documents/GD-FLD-LOT025', label: 'Google Drive', sub: 'Transaction folder', Icon: FolderOpen },
+    { to: '/zaps', label: 'Zapier', sub: 'Zaps', Icon: Zap },
+    { to: '/accounting', label: 'Xero', sub: 'Invoices', Icon: Receipt },
   ] },
-  { group: 'Zapier automation', items: [
-    { to: '/zaps', label: 'Zaps', sub: 'Flows 1 · 2 · 3', Icon: Zap },
+  { group: 'Operations & delivery', items: [
     { to: '/monitor', label: 'Automation Monitor', Icon: Activity },
     { to: '/design', label: 'Integration Design', Icon: Network },
-  ] },
-  { group: 'Delivery', items: [
     { to: '/testing', label: 'Testing & Go-live', Icon: FlaskConical },
     { to: '/docs', label: 'Documentation', Icon: BookOpen },
   ] },
   { group: 'Later phase', items: [
     { to: '/bills', label: 'Supplier Bills', sub: 'Shared inboxes → Xero', Icon: Inbox },
     { to: '/roadmap', label: 'AI Automation Roadmap', Icon: BrainCircuit },
+    { to: '/settings', label: 'Settings', Icon: Settings },
   ] },
-  { items: [{ to: '/settings', label: 'Settings', Icon: Settings }] },
 ]
 
-export function DemoBanner({ switcher }: { switcher?: ReactNode }) {
+/** Demo-only page switcher. There is no demo sidebar: every screen is shown full width, like the real apps. */
+function AppSwitcher({ failures }: { failures: number }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const loc = useLocation()
+  useEffect(() => setOpen(false), [loc.pathname, loc.search])
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
   return (
-    <div className="relative z-[70] flex min-h-7 shrink-0 items-center justify-center gap-2 bg-amber-400 px-3 py-1 text-center text-[10px] font-semibold tracking-wider text-amber-950 sm:text-[11px]" role="note">
-      {switcher && <div className="absolute top-1/2 left-2 -translate-y-1/2 tracking-normal">{switcher}</div>}
-      <ShieldAlert size={13} />
-      DEMO ENVIRONMENT · SYNTHETIC DATA · SIMULATED INTEGRATIONS
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} className="inline-flex items-center gap-1 rounded bg-amber-950/90 px-2 py-0.5 text-[11px] font-semibold tracking-normal text-amber-50 hover:bg-amber-950">
+        Switch app <ChevronDown size={12} />
+        {failures > 0 && <span className="ml-0.5 rounded-full bg-rose-500 px-1 text-[9px]">{failures}</span>}
+      </button>
+      {open && (
+        <div role="menu" className="scroll-thin absolute top-full left-0 mt-1.5 max-h-[80vh] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1.5 text-left tracking-normal text-slate-700 shadow-xl">
+          {NAV.map((section) => (
+            <div key={section.group} className="pb-1">
+              <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">{section.group}</p>
+              {section.items.map(({ to, label, sub, Icon, end }) => (
+                <NavLink key={to} to={to} end={end} role="menuitem" className={({ isActive }) => cn('flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-normal', isActive ? 'bg-brand-50 text-brand-900' : 'hover:bg-slate-50')}>
+                  <Icon size={15} className="shrink-0 text-slate-500" />
+                  <span className="flex-1">{label}{sub && <span className="text-slate-400"> · {sub}</span>}</span>
+                  {to === '/monitor' && failures > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{failures}</span>}
+                </NavLink>
+              ))}
+            </div>
+          ))}
+          <p className="border-t border-slate-100 px-3 pt-2 pb-1 text-[10px] leading-snug text-slate-400">Demo navigation only — not part of any product. Concept demo, not affiliated with or endorsed by Process Street, HubSpot, Xero, Zapier or Google.</p>
+        </div>
+      )}
     </div>
   )
 }
 
-/** Demo-only app switcher shown in the banner when a product screen is full-width (no demo sidebar). */
-function AppSwitcher({ onShowMenu }: { onShowMenu: () => void }) {
-  const navigate = useNavigate()
-  const go = (to: string) => () => navigate(to)
+export function DemoBanner() {
+  const { state, reset, interviewMode, setInterviewMode, guideOpen, setGuideOpen } = useDemo()
+  const [confirmReset, setConfirmReset] = useState(false)
+  // Failures still awaiting a successful retry (a retried key is recorded in processedKeys).
+  const failures = state.events.filter((e) => e.status === 'failed' && !state.processedKeys.includes(e.idempotencyKey)).length
+  const ctl = 'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-normal hover:bg-amber-500/60'
   return (
-    <ActionMenu
-      align="left"
-      label="Switch app"
-      trigger={<span className="inline-flex items-center gap-1 rounded bg-amber-950/90 px-2 py-0.5 text-[11px] font-semibold text-amber-50">Switch app <ChevronDown size={12} /></span>}
-      items={[
-        { label: 'Demo control center (Overview)', onClick: go('/') },
-        { label: 'Process Street — workflow run', onClick: go('/workflow') },
-        { label: 'HubSpot — deal', onClick: go('/crm/deal') },
-        { label: 'HubSpot — contact', onClick: go('/crm/contact') },
-        { label: 'Contract generation', onClick: go('/contracts') },
-        { label: 'Contract approval', onClick: go('/contracts/approval') },
-        { label: 'Google Drive — transaction folder', onClick: go('/documents/GD-FLD-LOT025') },
-        { label: 'Zapier — Zaps', onClick: go('/zaps') },
-        { label: 'Xero — invoices', onClick: go('/accounting') },
-        { label: 'Automation Monitor', onClick: go('/monitor') },
-        { label: 'Show demo menu', onClick: onShowMenu },
-      ]}
-    />
+    <div className="relative z-[70] flex min-h-7 shrink-0 items-center justify-center gap-2 bg-amber-400 px-3 py-1 text-center text-[10px] font-semibold tracking-wider text-amber-950 sm:text-[11px]" role="note">
+      <div className="absolute top-1/2 left-2 -translate-y-1/2"><AppSwitcher failures={failures} /></div>
+      <ShieldAlert size={13} />
+      <span className="hidden sm:inline">DEMO ENVIRONMENT · SYNTHETIC DATA · SIMULATED INTEGRATIONS</span>
+      <span className="sm:hidden">DEMO · SYNTHETIC DATA</span>
+      <div className="absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-0.5">
+        <button onClick={() => setGuideOpen(!guideOpen)} className={cn(ctl, guideOpen && 'bg-amber-500/60')} title="Guided end-to-end demo"><PlayCircle size={12} /> Guide</button>
+        <button onClick={() => { setInterviewMode(!interviewMode); if (!interviewMode) setGuideOpen(true) }} className={cn(ctl, interviewMode && 'bg-amber-500/60')} title="Interview Demo Mode"><Presentation size={12} /> Interview{interviewMode ? ' · on' : ''}</button>
+        {!interviewMode && <button onClick={() => setConfirmReset(true)} className={ctl} aria-label="Reset demo scenario" title="Reset demo scenario"><RotateCcw size={12} /></button>}
+      </div>
+      <ConfirmDialog open={confirmReset} title="Reset the demo scenario?" confirmLabel="Reset demo" tone="danger" onCancel={() => setConfirmReset(false)} onConfirm={() => { setConfirmReset(false); reset() }}>
+        All synthetic records return to the starting point: steps 1–5 complete, deal in Contract Approval, no contract, no Drive folder, no Xero invoice. Nothing outside this browser is affected.
+      </ConfirmDialog>
+    </div>
   )
 }
 
 export function AppShell() {
-  const { state, reset, interviewMode, setInterviewMode, guideOpen, setGuideOpen } = useDemo()
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const { interviewMode, guideOpen } = useDemo()
   useEffect(() => {
     // Interview Demo Mode: fixed laptop layout and dev-only controls hidden (see index.css).
     if (interviewMode) document.documentElement.dataset.interview = 'on'
@@ -109,98 +127,15 @@ export function AppShell() {
   }, [interviewMode])
   const loc = useLocation()
   const productView = /^\/(workflow|crm|documents|accounting|zaps|bills)/.test(loc.pathname)
-  const compactRoute = productView || loc.pathname.startsWith('/contracts')
-  // Failures still awaiting a successful retry (a retried key is recorded in processedKeys).
-  const failures = state.events.filter((e) => e.status === 'failed' && !state.processedKeys.includes(e.idempotencyKey)).length
-  const pendingSync = hubspotHasPendingChanges(state)
-
-  // Product screens get the full width, like the real apps: the control-center menu collapses to icons.
-  const [expandOnProduct, setExpandOnProduct] = useState(false)
-  const compact = compactRoute && !expandOnProduct
-  const sidebar = (
-    <nav className="flex h-full w-60 flex-col bg-slate-900 text-slate-300">
-      <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
-        <img src="./favicon.svg" alt="" className="size-8" />
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-white">Property Sales Automation</p>
-          <p className="text-[11px] text-slate-400">Demo control center · {COMPANY.development}</p>
-        </div>
-        {compactRoute && <button onClick={() => setExpandOnProduct(false)} className="ml-auto rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white" title="Collapse menu" aria-label="Collapse menu"><ChevronsLeft size={15} /></button>}
-      </div>
-      <div className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-2">
-        {NAV.map((section, si) => (
-          <div key={si} className={cn(si > 0 && 'mt-2')}>
-            {section.group && <p className="px-2.5 pb-1 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{section.group}</p>}
-            {section.items.map(({ to, label, Icon, end, sub }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  cn('flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm transition-colors', isActive ? 'bg-brand-700 text-white' : 'hover:bg-slate-800 hover:text-white')
-                }
-              >
-                <Icon size={17} className="shrink-0" />
-                <span className="min-w-0 flex-1 leading-tight">
-                  <span className="block truncate">{label}</span>
-                  {sub && <span className="block truncate text-[11px] opacity-70">{sub}</span>}
-                </span>
-                {to === '/monitor' && failures > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{failures}</span>}
-                {to === '/crm' && pendingSync && <span className="size-2 rounded-full bg-amber-400" title="HubSpot has unsynced changes" />}
-              </NavLink>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-slate-800 px-2 py-2">
-        <div className="flex gap-1">
-          <button onClick={() => setGuideOpen(!guideOpen)} title="Guided end-to-end demo" className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] hover:bg-slate-800 hover:text-white', guideOpen ? 'bg-slate-800 text-teal-300' : 'text-slate-300')}>
-            <PlayCircle size={13} /> Guide
-          </button>
-          <button onClick={() => { setInterviewMode(!interviewMode); if (!interviewMode) setGuideOpen(true) }} title="Interview Demo Mode" className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] hover:bg-slate-800 hover:text-white', interviewMode ? 'bg-slate-800 text-teal-300' : 'text-slate-300')}>
-            <Presentation size={13} /> Interview{interviewMode ? ' · on' : ''}
-          </button>
-          {!interviewMode && (
-            <button onClick={() => setConfirmReset(true)} title="Reset demo scenario" aria-label="Reset demo scenario" className="flex items-center justify-center rounded-md px-2 py-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
-              <RotateCcw size={13} />
-            </button>
-          )}
-        </div>
-        <p className="px-1.5 pt-1 text-[10px] leading-snug text-slate-500">Concept demo · not affiliated with Process Street, HubSpot, Xero, Zapier or Google.</p>
-      </div>
-    </nav>
-  )
 
   return (
     <div className="flex h-full flex-col">
-      <DemoBanner switcher={compact ? <AppSwitcher onShowMenu={() => setExpandOnProduct(true)} /> : undefined} />
-      <div className="flex min-h-0 flex-1">
-        {/* Product screens show only the product, like the real app; the demo menu lives in “Switch app”. */}
-        {!compact && <div className="hidden lg:block">{sidebar}</div>}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
-            <div className="absolute inset-y-0 left-0">{sidebar}</div>
-          </div>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-11 items-center gap-2 border-b border-slate-200 bg-white px-3 lg:hidden">
-            <button onClick={() => setMobileOpen((o) => !o)} className="rounded p-1.5 hover:bg-slate-100" aria-label="Menu">
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-            <span className="text-sm font-semibold">Property Sales Automation</span>
-          </div>
-          <main className={cn('min-h-0 flex-1', productView ? 'flex flex-col overflow-hidden' : 'scroll-thin overflow-y-auto', guideOpen && !productView && 'pb-28', guideOpen && productView && 'pb-[88px]')}>
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <DemoBanner />
+      <main className={cn('min-h-0 flex-1', productView ? 'flex flex-col overflow-hidden' : 'scroll-thin overflow-y-auto', guideOpen && !productView && 'pb-28', guideOpen && productView && 'pb-[88px]')}>
+        <Outlet />
+      </main>
       <DemoGuide />
       <Toaster />
-      <ConfirmDialog open={confirmReset} title="Reset the demo scenario?" confirmLabel="Reset demo" tone="danger" onCancel={() => setConfirmReset(false)} onConfirm={() => { setConfirmReset(false); reset() }}>
-        All synthetic records return to the starting point: steps 1–5 complete, deal in Contract Approval, no contract, no Drive folder, no Xero invoice. Nothing outside this browser is affected.
-      </ConfirmDialog>
     </div>
   )
 }

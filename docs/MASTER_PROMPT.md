@@ -64,7 +64,7 @@ src/
 - Recreate **recognisable functional UI patterns** of Process Street, HubSpot, Xero, Google Drive and Zapier as **original components**: layout, navigation, tables, record panels, badges, toolbars and forms.
 - **No** vendor logos, no fabricated screenshots, no scraped private screens.
 - Every product-style view carries a label: *"Simulated <Product>-style view · original demo component, not the <Product> product · synthetic data"*.
-- The sidebar footer reads: *"Concept demo. Not affiliated with or endorsed by Process Street, HubSpot, Xero, Zapier or Google."*
+- No demo sidebar: every screen is full width; navigation is the **Switch app** menu in the demo banner, whose footer reads *"Demo navigation only — not part of any product. Concept demo, not affiliated with or endorsed by Process Street, HubSpot, Xero, Zapier or Google."*
 - A persistent banner, above every screen, dialog and overlay, reads: **DEMO ENVIRONMENT · SYNTHETIC DATA · SIMULATED INTEGRATIONS**
 - Optimise for 1440 × 900 and 1280 × 720 laptop screen sharing; the layout must stay usable on mobile.
 
