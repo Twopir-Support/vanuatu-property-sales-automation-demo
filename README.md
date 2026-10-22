@@ -12,6 +12,50 @@ A client-facing, fully interactive demo showing how **Pacific Horizon Developmen
 > **DEMO ENVIRONMENT · SYNTHETIC DATA · SIMULATED INTEGRATIONS**
 > All people, records, amounts and documents are fictional. No vendor APIs are called and no credentials are needed. The product-style screens are original components that recreate familiar UI patterns; they are not the vendors' software, use no vendor logos, and imply no affiliation or endorsement.
 
+## UI previews
+
+All screenshots show synthetic demo data at 1440 × 900. The product-style screens are simulations, labelled as such in the app.
+
+### Overview dashboard
+![Overview dashboard](docs/screenshots/01-overview.png)
+
+### Process Street-style workflow
+| Run form (step 1) | Approval task (step 7) |
+|---|---|
+| ![Workflow form](docs/screenshots/02-workflow-form.png) | ![Workflow approval](docs/screenshots/09-workflow-approval.png) |
+
+### HubSpot-style CRM
+| Deal record | Lot Sales pipeline |
+|---|---|
+| ![HubSpot deal record](docs/screenshots/03-hubspot-deal.png) | ![HubSpot pipeline board](docs/screenshots/04-hubspot-pipeline.png) |
+
+| Duplicate contact prevented |
+|---|
+| ![HubSpot duplicate check](docs/screenshots/05-hubspot-duplicate-check.png) |
+
+### Google Drive-style documents
+| LOT-025 folder | Generated contract preview |
+|---|---|
+| ![Drive folder](docs/screenshots/06-drive-folder.png) | ![Drive contract preview](docs/screenshots/11-drive-contract-preview.png) |
+
+### Xero-style accounting
+| Before the milestone (waiting) | After contract approval (draft INV-0025) |
+|---|---|
+| ![Xero waiting for milestone](docs/screenshots/07-xero-waiting-milestone.png) | ![Xero draft invoice](docs/screenshots/12-xero-draft-invoice.png) |
+
+### Contracts, Lot Sales, Monitor, AI Roadmap, Settings
+| Contracts | Lot Sales |
+|---|---|
+| ![Contracts](docs/screenshots/10-contract-approved.png) | ![Lot Sales](docs/screenshots/08-lot-sales.png) |
+
+| Automation Monitor | AI Automation Roadmap |
+|---|---|
+| ![Automation Monitor](docs/screenshots/13-automation-monitor.png) | ![AI Roadmap](docs/screenshots/14-ai-roadmap.png) |
+
+| Settings |
+|---|
+| ![Settings](docs/screenshots/15-settings.png) |
+
 ## Run it
 
 ```bash
