@@ -1,12 +1,13 @@
 import { CheckCircle2, ChevronRight, CircleDashed, History, Play, Power, XCircle, Zap as ZapIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Spinner } from '../components/ui/overlays'
 import { useSearchParams } from 'react-router-dom'
 import { Badge } from '../components/ui/primitives'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { USERS } from '../data/ids'
 import type { DemoState } from '../data/types'
 import { APP_STYLE, FLOWS, ZAPS, type ZapDef, type ZapStep } from '../data/zaps'
-import { cn, dateTime, time } from '../lib/format'
+import { cn, dateTime, time, vt } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
 import { approveContract, createXeroInvoice, generateContract, signContract, syncHubSpot, toggleStep, type Result } from '../store/engine'
 
@@ -29,11 +30,12 @@ function AppBadge({ app, size = 32 }: { app: ZapStep['app']; size?: number }) {
 }
 
 export default function Zaps() {
-  const { state, run } = useDemo()
+  const { state, runDelayed, busy } = useDemo()
   const [params, setParams] = useSearchParams()
   const zap = ZAPS.find((z) => z.id === params.get('zap')) ?? ZAPS[0]
   const [stepIdx, setStepIdx] = useState(0)
   const [tab, setTab] = useState<'editor' | 'runs'>('editor')
+  const [tested, setTested] = useState<Set<string>>(new Set())
   const step = zap.steps[Math.min(stepIdx, zap.steps.length - 1)]
   const runs = state.events.filter((e) => e.scenario === zap.name)
   const open = (id: string) => { setParams({ zap: id }); setStepIdx(0) }
@@ -83,8 +85,8 @@ export default function Zaps() {
                 <button onClick={() => setTab('runs')} className={cn('flex items-center gap-1 px-3 py-1.5', tab === 'runs' ? 'bg-[#2d2e2e] text-white' : 'bg-white')}><History size={13} /> Zap runs ({runs.length})</button>
               </div>
               {RUNNERS[zap.id] && (
-                <button onClick={() => run(RUNNERS[zap.id])} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#ff4f00] px-3 text-sm font-semibold text-white hover:brightness-110">
-                  <Play size={13} /> Run on LOT-025
+                <button onClick={() => runDelayed('zaprun', RUNNERS[zap.id], 900)} disabled={busy === 'zaprun'} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#ff4f00] px-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60">
+                  {busy === 'zaprun' ? <><Spinner size={12} /> Running…</> : <><Play size={13} /> Run on LOT-025</>}
                 </button>
               )}
             </div>
@@ -108,7 +110,7 @@ export default function Zaps() {
                             <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{i === 0 ? 'Trigger' : st.kind === 'filter' ? 'Filter' : st.kind === 'search' ? 'Search' : 'Action'} · {st.app}</p>
                             <p className="truncate text-sm font-semibold">{i + 1}. {st.event}</p>
                           </div>
-                          <ChevronRight size={15} className="text-slate-400" />
+                          {tested.has(`${zap.id}:${i}`) ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ChevronRight size={15} className="text-slate-400" />}
                         </div>
                       </button>
                       {i < zap.steps.length - 1 && <span className="h-5 w-px bg-slate-400" />}
@@ -116,7 +118,7 @@ export default function Zaps() {
                   ))}
                 </ol>
               </div>
-              <StepPanel step={step} index={stepIdx} state={state} />
+              <StepPanel step={step} index={stepIdx} state={state} zapId={zap.id} tested={tested.has(`${zap.id}:${stepIdx}`)} onTested={() => setTested((t) => new Set(t).add(`${zap.id}:${stepIdx}`))} onContinue={() => setStepIdx((i) => Math.min(i + 1, zap.steps.length - 1))} isLast={stepIdx === zap.steps.length - 1} />
             </div>
           ) : (
             <RunsTable zap={zap} />
@@ -138,41 +140,115 @@ function Mapped({ value }: { value: string }) {
   )
 }
 
-function StepPanel({ step, index, state }: { step: ZapStep; index: number; state: DemoState }) {
+function StepPanel({ step, index, state, zapId, tested, onTested, onContinue, isLast }: { step: ZapStep; index: number; state: DemoState; zapId: string; tested: boolean; onTested: () => void; onContinue: () => void; isLast: boolean }) {
   const output = step.output?.(state)
+  const [tab, setTab] = useState<'setup' | 'configure' | 'test'>('configure')
+  const [testing, setTesting] = useState(false)
+  useEffect(() => { setTab('configure'); setTesting(false) }, [index, zapId])
+  const runTest = (then?: () => void) => {
+    setTesting(true)
+    window.setTimeout(() => { setTesting(false); onTested(); setTab('test'); then?.() }, 700)
+  }
+  const t = state.transaction
   return (
-    <aside className="scroll-thin hidden w-[400px] shrink-0 overflow-y-auto border-l border-[#e6e3dc] bg-white lg:block">
+    <aside className="scroll-thin hidden w-[420px] shrink-0 flex-col overflow-y-auto border-l border-[#e6e3dc] bg-white lg:flex">
       <div className="flex items-center gap-3 border-b border-[#e6e3dc] px-4 py-3">
         <AppBadge app={step.app} />
-        <div className="min-w-0">
-          <p className="text-xs text-slate-500">Step {index + 1} · {step.app}</p>
-          <p className="font-semibold">{step.event}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-slate-500">{index + 1}. {index === 0 ? 'Trigger' : 'Action'} · {step.app}</p>
+          <p className="truncate font-semibold">{step.event}</p>
         </div>
+        {tested && <span className="inline-flex items-center gap-1 rounded-full bg-[#e6f6ec] px-2 py-0.5 text-[11px] font-semibold text-[#136c2e]"><CheckCircle2 size={12} /> Tested</span>}
       </div>
-      <div className="space-y-4 p-4">
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Setup</p>
-          <dl className="space-y-2.5">
-            {step.fields.map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-xs font-medium text-slate-600">{k}</dt>
-                <dd className="mt-0.5 rounded-md border border-[#e6e3dc] bg-[#fbfaf8] px-2.5 py-1.5 text-sm"><Mapped value={v} /></dd>
-              </div>
-            ))}
+      <div className="flex border-b border-[#e6e3dc] px-2 text-[13px]">
+        {(['setup', 'configure', 'test'] as const).map((k) => (
+          <button key={k} onClick={() => setTab(k)} className={cn('border-b-2 px-3 py-2.5 capitalize', tab === k ? 'border-[#ff4f00] font-semibold text-[#2d2e2e]' : 'border-transparent text-slate-500 hover:text-[#2d2e2e]')}>{k}</button>
+        ))}
+      </div>
+
+      <div className="flex-1 space-y-4 p-4">
+        {tab === 'setup' && (
+          <dl className="space-y-3 text-sm">
+            <div><dt className="text-xs font-semibold text-slate-600">App</dt><dd className="mt-1 flex items-center gap-2 rounded-md border border-[#e6e3dc] bg-[#fbfaf8] px-2.5 py-1.5"><AppBadge app={step.app} size={20} /> {step.app}</dd></div>
+            <div><dt className="text-xs font-semibold text-slate-600">{index === 0 ? 'Trigger event' : 'Action event'}</dt><dd className="mt-1 rounded-md border border-[#e6e3dc] bg-[#fbfaf8] px-2.5 py-1.5">{step.event}</dd></div>
+            {!step.app.includes('by Zapier') && (
+              <div><dt className="text-xs font-semibold text-slate-600">Account</dt><dd className="mt-1 flex items-center justify-between rounded-md border border-[#e6e3dc] bg-[#fbfaf8] px-2.5 py-1.5"><span>{step.app} · Pacific Horizon integration account</span><span className="text-[11px] text-emerald-700">Connected (simulated)</span></dd></div>
+            )}
           </dl>
-        </div>
-        {step.note && <p className="rounded-md bg-[#fff1eb] p-3 text-xs text-[#7a2c00]">{step.note}</p>}
-        <div>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Test · LOT-025 record</p>
-          {output ? (
-            <pre className="scroll-thin max-h-72 overflow-auto rounded-md bg-[#2d2e2e] p-3 text-[11px] leading-relaxed text-[#ffd8c7]">{JSON.stringify(output, null, 2)}</pre>
-          ) : (
-            <p className="text-xs text-slate-500">No sample output for this step.</p>
-          )}
-        </div>
+        )}
+
+        {tab === 'configure' && (
+          <>
+            {step.mappings && (
+              <div>
+                <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Field mapping</p>
+                <ul className="space-y-2">
+                  {step.mappings.map(([from, to]) => (
+                    <li key={from + to} className="rounded-md border border-[#e6e3dc] bg-[#fbfaf8] p-2">
+                      <Pill text={from} />
+                      <span className="my-0.5 block pl-3 text-[11px] text-slate-400">↓</span>
+                      <Pill text={to} dest />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">Fields</p>
+              <dl className="space-y-2.5">
+                {step.fields.map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-xs font-medium text-slate-600">{k}</dt>
+                    <dd className="mt-0.5 rounded-md border border-[#e6e3dc] bg-[#fbfaf8] px-2.5 py-1.5 text-sm"><Mapped value={v} /></dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            {step.note && <p className="rounded-md bg-[#fff1eb] p-3 text-xs text-[#7a2c00]">{step.note}</p>}
+          </>
+        )}
+
+        {tab === 'test' && (
+          <>
+            {testing ? (
+              <p className="flex items-center gap-2 rounded-md border border-[#e6e3dc] px-3 py-3 text-sm text-slate-600"><Spinner size={14} className="text-[#ff4f00]" /> Testing step with the LOT-025 test record…</p>
+            ) : tested ? (
+              <div className="rounded-md border border-[#bfe5cb] bg-[#f0faf3] px-3 py-2.5">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-[#136c2e]"><CheckCircle2 size={15} /> Test successful</p>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                  {[t.lotId, t.buyerName, vt(t.salePrice)].map((x) => <span key={x} className="rounded bg-white px-2 py-0.5 font-medium text-slate-700 ring-1 ring-[#bfe5cb]">{x}</span>)}
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-md border border-dashed border-[#d6d2c8] px-3 py-3 text-sm text-slate-600">Test this step to see the data it returns for the LOT-025 test record.</p>
+            )}
+            {output && (tested || testing) && (
+              <div>
+                <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Data out</p>
+                <pre className="scroll-thin max-h-72 overflow-auto rounded-md bg-[#2d2e2e] p-3 text-[11px] leading-relaxed text-[#ffd8c7]">{JSON.stringify(output, null, 2)}</pre>
+              </div>
+            )}
+          </>
+        )}
         <p className="text-[11px] text-slate-400">Step and event names are indicative; exact Zapier app actions are confirmed during build.</p>
       </div>
+
+      <div className="sticky bottom-0 flex gap-2 border-t border-[#e6e3dc] bg-white px-4 py-3">
+        <button onClick={() => runTest()} disabled={testing} className="h-9 flex-1 rounded-md border border-[#2d2e2e] text-sm font-semibold hover:bg-[#f7f6f3] disabled:opacity-50">Test step</button>
+        <button onClick={() => runTest(onContinue)} disabled={testing} className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md bg-[#695be8] text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">
+          {testing ? <Spinner size={13} /> : null} {isLast ? 'Test & finish' : 'Test & continue'}
+        </button>
+      </div>
     </aside>
+  )
+}
+
+function Pill({ text, dest }: { text: string; dest?: boolean }) {
+  const [app, field] = text.split(' · ')
+  return (
+    <span className={cn('inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px]', dest ? 'bg-[#e6f6ec] text-[#136c2e]' : 'bg-[#ebe8fa] text-[#3d2ea6]')}>
+      <b className="font-sans font-semibold">{app}</b>{field ? ` · ${field}` : ''}
+    </span>
   )
 }
 

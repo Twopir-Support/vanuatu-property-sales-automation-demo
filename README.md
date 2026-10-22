@@ -26,55 +26,66 @@ HubSpot's Xero data-sync app supports six currencies: USD, CAD, EUR, GBP, AUD an
 
 ## UI previews
 
-All screenshots show synthetic data at 1440 × 900. They were captured from the running app while walking through Flows 1 → 2 → 3.
+Screenshots show synthetic data at 1440 × 900. They were captured from the running app while it walked through Flows 1 → 2 → 3 with the guided demo.
 
-### Overview
-![Overview](docs/screenshots/01-overview.png)
+### Control center (our own UI)
+![Control center](docs/screenshots/01-control-center.png)
 
-### Flow 1 · Process Street checklist → HubSpot find-or-create
-| Process Street lot-sale checklist | Zap 1 in the Zapier-style editor |
+### Process Street-style workflow run
+| Run form (step 1) | Step 6 with comments, attachments and run details |
 |---|---|
-| ![Process Street checklist](docs/screenshots/02-flow1-process-street-checklist.png) | ![Zap 1](docs/screenshots/03-flow1-zap1-editor.png) |
+| ![Run form](docs/screenshots/02-process-street-run-form.png) | ![Step 6](docs/screenshots/03-process-street-step6.png) |
 
-| HubSpot deal record | Duplicate contact prevented |
+### HubSpot-style CRM
+| Deals pipeline | Deal record (header, tabs, properties) |
 |---|---|
-| ![HubSpot deal](docs/screenshots/04-flow1-hubspot-deal.png) | ![HubSpot duplicate check](docs/screenshots/05-flow1-hubspot-duplicate-check.png) |
+| ![Pipeline](docs/screenshots/04-hubspot-pipeline.png) | ![Deal record](docs/screenshots/05-hubspot-deal-record.png) |
 
-### Flow 2 · Contract generation → review → signature → Google Drive
-| Zap 2A: template → Drive → review | Review approved, out for signature |
+| “Possible duplicate contact found” | Deal Closed Won after signature |
 |---|---|
-| ![Zap 2A](docs/screenshots/07-flow2-zap2a-editor.png) | ![Review and signature](docs/screenshots/08-flow2-review-and-signature.png) |
+| ![Duplicate dialog](docs/screenshots/06-hubspot-duplicate-dialog.png) | ![Closed Won](docs/screenshots/15-hubspot-closed-won.png) |
 
-| Signed contract | Drive: draft, approved and signed files |
+### Contract generation
+| Before generation (unmerged template) | Draft generated, validated |
 |---|---|
-| ![Contract signed](docs/screenshots/09-flow2-contract-signed.png) | ![Drive contracts folder](docs/screenshots/10-flow2-drive-contracts-folder.png) |
+| ![Contract before](docs/screenshots/07-contract-generator-before.png) | ![Contract draft](docs/screenshots/13-contract-generator-draft.png) |
 
-### Flow 3 · Deal won → Xero draft invoice (rules first)
-| Xero waiting: rules not yet met | Zap 3 business-rule filter |
-|---|---|
-| ![Xero waiting](docs/screenshots/06-flow3-xero-waiting-rules.png) | ![Zap 3 filter](docs/screenshots/11-flow3-zap3-filter.png) |
-
-| Draft invoice INV-0025 created after the deal is won |
+| Signed |
 |---|
-| ![Xero draft invoice](docs/screenshots/12-flow3-xero-draft-invoice.png) |
+| ![Contract signed](docs/screenshots/18-contract-signed.png) |
 
-### Testing, documentation and design
-| Testing & Go-live (15 executable tests) | Maintenance documentation |
+### Google Drive-style documents
+| Before Zap 2A (no LOT-025 folder) | 04 Contracts with file-details drawer |
 |---|---|
-| ![Testing](docs/screenshots/14-testing-go-live.png) | ![Documentation](docs/screenshots/15-documentation.png) |
+| ![Drive before](docs/screenshots/08-drive-before-zap2a.png) | ![Drive drawer](docs/screenshots/14-drive-contracts-folder.png) |
 
-| Integration Design | Automation Monitor |
+### Xero-style accounting
+| Zap 3 rules not yet met | Draft INV-0025 (not posted to Xero) |
 |---|---|
-| ![Integration Design](docs/screenshots/16-integration-design.png) | ![Automation Monitor](docs/screenshots/13-automation-monitor.png) |
+| ![Xero rules](docs/screenshots/09-xero-zap3-rules-not-met.png) | ![Xero invoice](docs/screenshots/17-xero-draft-invoice.png) |
 
-### Later phase · supplier invoices from two shared inboxes → Xero draft bills
-| Shared inboxes with extraction | Xero draft bills (duplicate skipped) |
+### Zapier-style editor
+| Zap 1 field mapping | Test successful |
 |---|---|
-| ![Supplier inboxes](docs/screenshots/17-supplier-bills-inboxes.png) | ![Xero bills](docs/screenshots/18-supplier-bills-xero-drafts.png) |
+| ![Zap 1 mapping](docs/screenshots/10-zapier-zap1-mapping.png) | ![Test successful](docs/screenshots/11-zapier-test-successful.png) |
 
-| Lot Sales | Roadmap |
+| Zap 3 business-rule filter | Guided demo bar |
 |---|---|
-| ![Lot Sales](docs/screenshots/19-lot-sales.png) | ![Roadmap](docs/screenshots/20-roadmap.png) |
+| ![Zap 3 filter](docs/screenshots/16-zapier-zap3-filter.png) | ![Guided demo](docs/screenshots/12-guided-demo-flow1.png) |
+
+### Automation Monitor
+| Operations console | Retryable error drawer | Validation error (paused) |
+|---|---|---|
+| ![Monitor](docs/screenshots/19-monitor-console.png) | ![Error drawer](docs/screenshots/20-monitor-error-drawer.png) | ![Validation error](docs/screenshots/21-monitor-validation-error.png) |
+
+### Delivery and later phase
+| Testing & Go-live (17 tests) | AI Automation Roadmap |
+|---|---|
+| ![Testing](docs/screenshots/22-testing-go-live.png) | ![Roadmap](docs/screenshots/23-ai-roadmap.png) |
+
+| Supplier bills | Integration design | Documentation |
+|---|---|---|
+| ![Supplier bills](docs/screenshots/24-supplier-bills.png) | ![Design](docs/screenshots/25-integration-design.png) | ![Docs](docs/screenshots/26-documentation.png) |
 
 ## Run it
 
@@ -87,16 +98,19 @@ npm run preview    # serve the production build
 
 Requires Node 18+. The build is a static site with hash routing, so `dist/` can be hosted anywhere, including GitHub Pages.
 
-## Suggested interview walkthrough (about 10 minutes)
+## Interview walkthrough
 
-1. **Overview:** the "what the client asked for → where it is" panel and the five-system tracker.
-2. **Flow 1:** in **Workflow** (Process Street), edit the price, click **Save Changes**, then **Sync to HubSpot**. Click sync again: the second run is skipped as already processed. Open **Zaps → Zap 1** to show the steps. In **CRM → Contacts → Create contact**, the duplicate is caught.
-3. **Flow 3 guardrail, before Flow 2:** in the HubSpot deal, drag the stage to **Closed Won**. Zap 3's filter stops it because the contract isn't signed, and Xero is untouched. Set the stage back.
-4. **Flow 2:** check **step 6**. Zap 2A creates the Drive folder, copies the supporting documents and saves the DRAFT contract. **Approve** step 7 and Zap 2B files the APPROVED PDF and sends it for signature. Click **Simulate buyer signature** and Zap 2C files the SIGNED PDF and marks the deal **Closed Won**.
-5. **Flow 3:** that win triggers Zap 3. All six rules pass, and Xero now shows draft **INV-0025**, whose number is written back to the deal.
-6. **Testing & Go-live:** run the 15 end-to-end tests and walk through the go-live checklist. **Documentation:** download the runbook.
-7. **Supplier Bills (later phase):** run the inbox poll. You get 4 drafts, 1 duplicate skipped (the same invoice arrived in both inboxes) and 1 held for review.
-8. **Settings → Simulate an API outage:** shows a failed run and a retry in the **Automation Monitor**. **Reset demo scenario** restores the starting state.
+The quickest way in is **Guide** in the sidebar footer, or **Start guided demo** on the control center. A bar at the bottom walks through 14 steps. Each step opens the right screen, shows the line to say, and has a button that runs that step's Zap through the real engine:
+
+1. Control center → 2. Process Street CRM task (Zap 1) → 3. Zap 1 in the editor → 4. HubSpot buyer and deal matched → 5. Step 6 (Zap 2A) → 6. Contract draft → 7. Drive folder and documents → 8. Internal approval (Zap 2B) → 9. Buyer e-signature (Zap 2C) → 10. Deal Closed Won → 11. Zap 3 validation → 12. Xero draft invoice → 13. Automation Monitor → 14. AI roadmap.
+
+**Interview Demo Mode** (sidebar footer) locks the laptop layout, opens the guide, and hides development-only controls: reset, uncomplete and the idempotency re-run buttons. The DEMO ENVIRONMENT banner stays.
+
+Things worth showing beyond the main flow:
+- **Guardrail:** drag the HubSpot deal to **Closed Won** before signature. The confirmation explains that Zap 3 will run, and its filter then stops it. Xero is untouched.
+- **Duplicates:** in **CRM → Contacts → Create contact**, the "Possible duplicate contact found" dialog appears. **Create new contact** explains why it is blocked.
+- **Failures:** in the **Automation Monitor**, open the LOT-024 Xero failure (retryable, attempt 1/3) and click **Retry Now**. Open the LOT-027 validation error: it stays paused until the settlement date is fixed.
+- **Tests:** in **Testing & Go-live**, run all 17 tests.
 
 ## Cross-system record IDs
 

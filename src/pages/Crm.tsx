@@ -32,6 +32,7 @@ import {
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
+import { ActionMenu, ConfirmDialog } from '../components/ui/overlays'
 import { IDS } from '../data/ids'
 import { DEAL_STAGES, type HubSpotDeal, type HubSpotTimelineItem } from '../data/types'
 import { cn, date, dateTime, initials, longDate, vt } from '../lib/format'
@@ -247,44 +248,76 @@ function CreateContactPanel({ onClose }: { onClose: () => void }) {
   const { state, run } = useDemo()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: 'Alex.Morgan@example.com ', firstName: 'Alex', lastName: 'Morgan', phone: '+678 555 0142' })
+  const [dupOpen, setDupOpen] = useState(false)
+  const [why, setWhy] = useState(false)
   const dup = findDuplicateContact(state, form.email)
-  const input = 'w-full rounded-sm border border-hs-border bg-[#f5f8fa] px-2.5 py-1.5 text-sm outline-none focus:border-hs-teal focus:bg-white'
+  const input = 'w-full rounded-[3px] border border-hs-border bg-[#f5f8fa] px-2.5 py-1.5 text-sm outline-none focus:border-hs-teal focus:bg-white focus:shadow-[0_0_4px_1px_rgba(0,208,228,.3)]'
+  const submit = () => {
+    if (dup) { setDupOpen(true); setWhy(false); return }
+    run((s) => createHubSpotContact(s, form))
+    onClose()
+  }
   return (
     <div className="absolute inset-0 z-20 flex justify-end bg-hs-nav/30">
       <div className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between bg-hs-teal px-5 py-3 text-white">
-          <h2 className="font-semibold">Create Contact</h2>
+          <h2 className="font-semibold">Create contact</h2>
           <button onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <div className="scroll-thin flex-1 space-y-4 overflow-y-auto p-5 text-sm">
-          <p className="text-xs text-slate-500">Prefilled with a re-submitted web enquiry to demonstrate duplicate matching. Email is normalised (trimmed, lower-cased) before matching.</p>
-          <label className="block"><span className="mb-1 block text-xs font-medium">Email</span><input className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-          {dup && (
-            <div className="rounded-sm border border-amber-300 bg-amber-50 p-3 text-xs">
-              <p className="flex items-center gap-1.5 font-semibold text-amber-900"><AlertTriangle size={14} /> This email is already associated with a contact</p>
-              <p className="mt-1 text-amber-900">{dup.firstName} {dup.lastName} · {dup.id} · Buyer ID {dup.buyerId || '—'}</p>
-              {dup.id === IDS.hubspotContact && <button onClick={() => navigate('/crm/contact')} className="mt-2 font-medium text-hs-link hover:underline">Go to existing record →</button>}
-            </div>
-          )}
-          <label className="block"><span className="mb-1 block text-xs font-medium">First name</span><input className={input} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-medium">Last name</span><input className={input} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-medium">Phone number</span><input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
-          <label className="block"><span className="mb-1 block text-xs font-medium">Contact owner</span><input className={input} value="Sarah Williams" disabled /></label>
+          <p className="rounded-[3px] bg-[#f5f8fa] px-3 py-2 text-xs text-slate-600">Prefilled with a re-submitted website enquiry. HubSpot-side matching normalises email (trim, lower-case) and checks Buyer ID before anything is created.</p>
+          <label className="block"><span className="mb-1 block text-xs font-semibold">Email</span><input className={input} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+          {dup && <p className="-mt-2 flex items-center gap-1.5 text-xs text-amber-800"><AlertTriangle size={13} /> Matches an existing contact</p>}
+          <label className="block"><span className="mb-1 block text-xs font-semibold">First name</span><input className={input} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold">Last name</span><input className={input} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold">Phone number</span><input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold">Contact owner</span><select className={input} disabled><option>Sarah Williams</option></select></label>
+          <label className="block"><span className="mb-1 block text-xs font-semibold">Lifecycle stage</span><select className={input} disabled><option>Lead</option></select></label>
         </div>
         <div className="flex gap-2 border-t border-hs-border p-4">
-          <button
-            onClick={() => {
-              run((s) => createHubSpotContact(s, form))
-              if (!dup) onClose()
-            }}
-            className="h-9 rounded-sm bg-hs-orange px-4 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Create
-          </button>
-          <button onClick={onClose} className="h-9 rounded-sm border border-hs-border px-4 text-sm">Cancel</button>
-          <span className="ml-auto self-center text-[11px] text-slate-500">{dup ? 'Create will be blocked' : 'No match found'}</span>
+          <button onClick={submit} className="h-9 rounded-[3px] bg-hs-orange px-4 text-sm font-medium text-white hover:brightness-105">Create</button>
+          <button onClick={onClose} className="h-9 rounded-[3px] border border-hs-orange px-4 text-sm font-medium text-hs-orange">Cancel</button>
         </div>
       </div>
+
+      {dupOpen && dup && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-hs-nav/40 p-4" onMouseDown={() => setDupOpen(false)}>
+          <div className="w-full max-w-lg rounded-[3px] bg-white shadow-2xl" onMouseDown={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
+            <div className="flex items-center justify-between bg-hs-teal px-5 py-3 text-white">
+              <h3 className="font-semibold">Possible duplicate contact found</h3>
+              <button onClick={() => setDupOpen(false)} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="space-y-3 p-5 text-sm">
+              <p>A contact with the same email already exists. Matching ignores case and spaces, so <code className="rounded bg-slate-100 px-1">{form.email.trim()}</code> is treated as <code className="rounded bg-slate-100 px-1">{form.email.trim().toLowerCase()}</code>.</p>
+              <div className="flex items-center gap-3 rounded-[3px] border border-hs-border p-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-[#eaf0f6] text-sm font-semibold">{initials(`${dup.firstName} ${dup.lastName}`)}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-hs-link">{dup.firstName} {dup.lastName}</p>
+                  <p className="text-xs text-slate-600">{dup.email} · {dup.phone}</p>
+                  <p className="text-xs text-slate-500">Buyer ID {dup.buyerId || '—'} · {dup.id} · owner {dup.owner}</p>
+                </div>
+                <span className="rounded bg-[#e5f8f6] px-2 py-0.5 text-xs font-medium text-[#00a38d]">1 open deal</span>
+              </div>
+              {why && (
+                <div className="rounded-[3px] border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                  <p className="mb-1 font-semibold">Blocked by the integration rule — here is why</p>
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    <li>The buyer’s calls, emails and deal history would be split across two records.</li>
+                    <li>Zap 1 matches on Buyer ID then email — two matches makes the next sync ambiguous.</li>
+                    <li>Zap 3 could create a second Xero contact and invoice for the same buyer.</li>
+                  </ul>
+                  <p className="mt-1.5">The attempt has been logged in the Automation Monitor. An admin can merge records if a genuine second buyer shares this email.</p>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-hs-border px-5 py-3">
+              <button onClick={() => setDupOpen(false)} className="h-9 rounded-[3px] border border-hs-border px-4 text-sm">Cancel</button>
+              <button onClick={() => { run((s) => createHubSpotContact(s, form)); setWhy(true) }} disabled={why} className="h-9 rounded-[3px] border border-hs-orange px-4 text-sm font-medium text-hs-orange disabled:opacity-40">Create new contact</button>
+              <button onClick={() => navigate(dup.id === IDS.hubspotContact ? '/crm/contact' : '/crm?view=contacts')} className="h-9 rounded-[3px] bg-hs-orange px-4 text-sm font-medium text-white">Use existing contact</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -293,7 +326,7 @@ function CreateContactPanel({ onClose }: { onClose: () => void }) {
 /* Record pages                                                         */
 /* ------------------------------------------------------------------ */
 
-function ActionIcons() {
+function ActionIcons({ compact }: { compact?: boolean } = {}) {
   const items = [
     { Icon: StickyNote, label: 'Note' },
     { Icon: Mail, label: 'Email' },
@@ -302,6 +335,15 @@ function ActionIcons() {
     { Icon: Calendar, label: 'Meeting' },
     { Icon: MoreHorizontal, label: 'More' },
   ]
+  if (compact) {
+    return (
+      <div className="flex gap-1">
+        {items.slice(0, 5).map(({ Icon, label }) => (
+          <span key={label} title={label} className="flex size-7 items-center justify-center rounded-full border border-hs-border bg-[#f5f8fa] text-hs-text hover:bg-[#eaf0f6]"><Icon size={13} /></span>
+        ))}
+      </div>
+    )
+  }
   return (
     <div className="flex justify-center gap-3">
       {items.map(({ Icon, label }) => (
@@ -401,10 +443,11 @@ function DuplicateCheckCard() {
   return (
     <div className="rounded-sm border border-hs-border bg-white">
       <div className="flex items-center justify-between border-b border-hs-border px-4 py-2.5">
-        <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16} className="text-[#00bda5]" /> Duplicate Check: {state.hubspot.duplicateCheck}</p>
+        <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={16} className="text-[#00bda5]" /> Duplicate Check: <span className="text-[#00a38d]">{state.hubspot.duplicateCheck.toUpperCase()}</span></p>
         <span className="rounded bg-[#e5f8f6] px-2 py-0.5 text-xs font-medium text-[#00a38d]">{contactMatches} contact · {dealMatches} deal</span>
       </div>
       <dl className="grid gap-3 p-4 text-xs sm:grid-cols-2">
+        <div className="sm:col-span-2"><dt className="font-semibold">Matching rule</dt><dd className="text-slate-600">Buyer ID + Email + Lot ID / Deal Key</dd></div>
         <div><dt className="font-semibold">Contact matching</dt><dd className="text-slate-600">1. Stable Buyer ID <code>{t.buyerId}</code><br />2. Normalised email <code>{t.email.toLowerCase()}</code></dd></div>
         <div><dt className="font-semibold">Deal uniqueness rule</dt><dd className="text-slate-600">One open deal per <code>Lot ID + Buyer ID</code> ({t.lotId} + {t.buyerId}). Re-sync updates, never inserts.</dd></div>
         <div><dt className="font-semibold">Idempotency</dt><dd className="text-slate-600">Each sync carries <code>hs.upsert:{t.id}:&lt;payload hash&gt;</code>. Replays are ignored.</dd></div>
@@ -492,133 +535,178 @@ function SyncBanner() {
   )
 }
 
+function PropRow({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <div className="group -mx-2 rounded-[3px] px-2 py-1.5 hover:bg-[#f5f8fa]">
+      <p className="text-xs text-[#516f90]">{label}</p>
+      <p className={cn('flex items-center justify-between gap-2 text-sm text-hs-text', mono && 'font-mono text-[13px]')}>
+        <span className="min-w-0 break-words">{value || '—'}</span>
+        <Pencil size={12} className="shrink-0 text-hs-link opacity-0 group-hover:opacity-100" />
+      </p>
+    </div>
+  )
+}
+
 export function DealRecord() {
   const { state, run } = useDemo()
   const deal = state.hubspot.deals.find((d) => d.id === IDS.hubspotDeal)!
   const contact = state.hubspot.contacts.find((c) => c.id === deal.contactId)
   const contract = state.contract
-  const contractFile = state.drive.files.find((f) => f.id === contract.driveFileId)
   const stageIdx = DEAL_STAGES.indexOf(deal.stage)
+  const [pendingStage, setPendingStage] = useState<HubSpotDeal['stage'] | null>(null)
+  const files = ['gd-f-passport', 'gd-f-address', 'gd-f-application', contract.driveFileId, contract.approvedFileId, contract.signedFileId]
+    .map((id) => state.drive.files.find((x) => x.id === id))
+    .filter((f): f is NonNullable<typeof f> => !!f)
   const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => undefined)
 
   return (
     <HubSpotChrome>
       <SyncBanner />
-      <RecordLayout
-        left={
-          <div>
-            <div className="flex items-center justify-between px-4 pt-3 text-sm">
-              <NavLink to="/crm?view=deals" className="inline-flex items-center gap-0.5 text-hs-link hover:underline"><ChevronLeft size={15} /> Deals</NavLink>
-              <span className="inline-flex items-center gap-0.5 text-hs-link">Actions <ChevronDown size={14} /></span>
+      {/* Record header */}
+      <div className="shrink-0 border-b border-hs-border bg-white px-6 pt-3 pb-3">
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <NavLink to="/crm?view=deals" className="inline-flex items-center gap-0.5 text-hs-link hover:underline"><ChevronLeft size={15} /> Deals</NavLink>
+          <div className="flex items-center gap-2">
+            <button onClick={() => copy(deal.id)} className="inline-flex items-center gap-1 font-mono text-xs text-[#516f90] hover:text-hs-link"><Copy size={11} /> {deal.id}</button>
+            <ActionMenu
+              trigger={<span className="inline-flex items-center gap-1 rounded-[3px] border border-hs-border px-3 py-1 text-sm text-hs-text">Actions <ChevronDown size={13} /></span>}
+              items={[
+                { label: 'Sync from Process Street', onClick: () => run((s) => syncHubSpot(s, 'HubSpot deal → Actions')) },
+                { label: 'View Zap 3 (Xero)', onClick: () => window.location.assign('#/zaps?zap=z3') },
+                { label: 'Open Drive folder', onClick: () => window.location.assign(`#/documents/${IDS.driveFolder}`) },
+                { label: 'Delete', disabled: true, danger: true },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-[3px] bg-[#ffebe6] text-hs-orange"><Handshake size={20} /></span>
+            <div>
+              <h1 className="text-[22px] leading-tight font-semibold text-hs-text">{deal.name}</h1>
+              <p className="text-xs text-[#516f90]">Lot Sales pipeline · created {dateTime(deal.createdAt)}</p>
             </div>
-            <div className="px-4 pt-4 pb-4">
-              <div className="mb-3 flex size-12 items-center justify-center rounded-md bg-[#ffebe6] text-hs-orange"><Handshake size={22} /></div>
-              <h1 className="text-xl leading-tight font-semibold">{deal.name}</h1>
-              <p className="mt-1 text-sm">Amount: <b>{vt(deal.amount)}</b></p>
-              <p className="text-sm">Close date: {longDate(deal.settlementDate)}</p>
-              <label className="mt-2 flex items-center gap-2 text-sm">
-                Stage:
-                <select value={deal.stage} onChange={(e) => run((s) => setDealStage(s, deal.id, e.target.value as HubSpotDeal['stage']))} className="rounded-sm border border-hs-border bg-white px-1.5 py-1 text-sm font-semibold">
+          </div>
+          <dl className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div><dt className="text-xs text-[#516f90]">Amount</dt><dd className="font-semibold">{vt(deal.amount)}</dd></div>
+            <div><dt className="text-xs text-[#516f90]">Close date</dt><dd>{longDate(deal.settlementDate)}</dd></div>
+            <div><dt className="text-xs text-[#516f90]">Deal owner</dt><dd className="flex items-center gap-1.5"><span className="flex size-5 items-center justify-center rounded-full bg-hs-teal text-[9px] font-semibold text-white">SW</span>{deal.owner}</dd></div>
+            <div>
+              <dt className="text-xs text-[#516f90]">Deal stage</dt>
+              <dd>
+                <select value={deal.stage} onChange={(e) => setPendingStage(e.target.value as HubSpotDeal['stage'])} className="rounded-[3px] border border-hs-border bg-[#f5f8fa] px-2 py-1 text-sm font-semibold text-hs-text" aria-label="Deal stage">
                   {DEAL_STAGES.map((st) => <option key={st}>{st}</option>)}
                 </select>
-              </label>
-              <button onClick={() => copy(deal.id)} className="mt-2 inline-flex items-center gap-1 font-mono text-xs text-slate-500 hover:text-hs-link"><Copy size={11} /> Record ID {deal.id}</button>
+              </dd>
             </div>
-            <div className="pb-4"><ActionIcons /></div>
-            <Collapsible title="About this deal" actions={<span className="text-xs text-hs-link">Actions ▾</span>}>
-              <Prop label="Deal owner" value={deal.owner} />
-              <Prop label="Pipeline" value={`${deal.pipeline}`} />
-              <Prop label="Deal stage" value={deal.stage} />
-              <Prop label="Amount" value={vt(deal.amount)} />
-              <Prop label="Property" value={deal.project} />
-              <Prop label="Lot ID" value={deal.lotId} mono />
-              <Prop label="Buyer ID" value={deal.buyerId} mono />
-              <Prop label="Country" value={deal.country} />
-              <Prop label="Currency" value={deal.currency} />
-              <Prop label="Settlement date" value={longDate(deal.settlementDate)} />
-              <Prop label="Create date" value={dateTime(deal.createdAt)} />
-              <Prop label="Last modified date" value={dateTime(deal.updatedAt)} />
-            </Collapsible>
-            <Collapsible title="Integration references" defaultOpen={false}>
-              <Prop label="Process Street run" value={<Link className="text-hs-link" to="/workflow">{IDS.processStreetRun}</Link>} mono />
-              <Prop label="Transaction ID" value={IDS.transaction} mono />
-              <Prop label="Google Drive folder" value={<Link className="text-hs-link" to={`/documents/${IDS.driveFolder}`}>{IDS.driveFolder}</Link>} mono />
-              <Prop label="Xero invoice" value={state.xero.invoice ? <Link className="text-hs-link" to="/accounting/invoice">{state.xero.invoice.number}</Link> : 'Not created'} mono />
-            </Collapsible>
-          </div>
-        }
-        middle={
+          </dl>
+        </div>
+        <div className="mt-3 flex gap-1">
+          {DEAL_STAGES.map((st, i) => (
+            <div key={st} className="flex-1" title={st}>
+              <div className={cn('h-1.5 rounded-full', i <= stageIdx ? 'bg-[#00bda5]' : 'bg-[#eaf0f6]')} />
+              <p className={cn('mt-1 hidden truncate text-[10px] md:block', i === stageIdx ? 'font-semibold text-hs-text' : 'text-[#7c98b6]')}>{st}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <section className="scroll-thin min-w-0 flex-1 overflow-y-auto">
           <MiddleTabs
             overview={
               <>
-                <div className="rounded-sm border border-hs-border bg-white">
-                  <p className="border-b border-hs-border px-4 py-2.5 text-sm font-semibold">Data highlights</p>
+                <div className="rounded-[3px] border border-hs-border bg-white">
+                  <div className="flex items-center justify-between border-b border-hs-border px-4 py-2.5"><p className="text-sm font-semibold">Data highlights</p><ActionIcons compact /></div>
                   <div className="grid grid-cols-2 gap-4 p-4 text-xs md:grid-cols-4">
-                    <div><p className="font-semibold text-slate-500 uppercase">Create date</p><p className="text-sm">{dateTime(deal.createdAt)}</p></div>
-                    <div><p className="font-semibold text-slate-500 uppercase">Deal stage</p><p className="text-sm">{deal.stage} <span className="text-slate-500">({deal.pipeline})</span></p></div>
-                    <div><p className="font-semibold text-slate-500 uppercase">Amount</p><p className="text-sm">{vt(deal.amount)}</p></div>
-                    <div><p className="font-semibold text-slate-500 uppercase">Last activity</p><p className="text-sm">{dateTime(state.hubspot.timeline[0]?.at ?? deal.updatedAt)}</p></div>
-                  </div>
-                  <div className="flex gap-1 px-4 pb-4">
-                    {DEAL_STAGES.map((st, i) => (
-                      <div key={st} className="flex-1" title={st}>
-                        <div className={cn('h-1.5 rounded-full', i <= stageIdx ? 'bg-[#00bda5]' : 'bg-[#eaf0f6]')} />
-                        <p className={cn('mt-1 hidden truncate text-[10px] md:block', i === stageIdx ? 'font-semibold' : 'text-slate-500')}>{st}</p>
-                      </div>
-                    ))}
+                    <div><p className="font-semibold text-[#516f90] uppercase">Create date</p><p className="text-sm">{dateTime(deal.createdAt)}</p></div>
+                    <div><p className="font-semibold text-[#516f90] uppercase">Deal stage</p><p className="text-sm">{deal.stage}</p></div>
+                    <div><p className="font-semibold text-[#516f90] uppercase">Last activity</p><p className="text-sm">{dateTime(state.hubspot.timeline[0]?.at ?? deal.updatedAt)}</p></div>
+                    <div><p className="font-semibold text-[#516f90] uppercase">Xero invoice</p><p className="text-sm">{deal.xeroInvoice ?? '—'}</p></div>
                   </div>
                 </div>
                 <DuplicateCheckCard />
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <AssocTile title="Contact" count={contact ? 1 : 0}>
+                    {contact && (
+                      <Link to="/crm/contact" className="flex items-center gap-2.5 hover:underline">
+                        <span className="flex size-8 items-center justify-center rounded-full bg-[#eaf0f6] text-xs font-semibold">{initials(`${contact.firstName} ${contact.lastName}`)}</span>
+                        <span className="min-w-0"><span className="block text-sm font-semibold text-hs-link">{contact.firstName} {contact.lastName}</span><span className="block truncate text-xs text-[#516f90]">{contact.email}</span></span>
+                      </Link>
+                    )}
+                  </AssocTile>
+                  <AssocTile title="Documents" count={files.length}>
+                    {files.length ? (
+                      <ul className="space-y-1 text-xs">{files.slice(0, 4).map((f) => <li key={f.id}><Link to={`/documents/${f.parentId}?file=${f.id}`} className="flex items-center gap-1.5 text-hs-link hover:underline"><FileText size={12} /><span className="truncate">{f.name}</span></Link></li>)}</ul>
+                    ) : <p className="text-xs text-[#516f90]">Filed to Google Drive by Zap 2A at step 6.</p>}
+                  </AssocTile>
+                  <AssocTile title="Invoice" count={state.xero.invoice ? 1 : 0}>
+                    {state.xero.invoice ? (
+                      <Link to="/accounting/invoice" className="block text-sm hover:underline"><span className="font-semibold text-hs-link">{state.xero.invoice.number}</span> · <span className="text-xs">{state.xero.invoice.status} (Xero, simulated)</span></Link>
+                    ) : <p className="text-xs text-[#516f90]">Zap 3 creates a Xero draft once the deal is Closed Won and the contract is signed.</p>}
+                  </AssocTile>
+                </div>
               </>
             }
           />
-        }
-        right={
-          <div>
-            <AssocCard title="Contacts" count={contact ? 1 : 0}>
-              {contact && (
-                <Link to="/crm/contact" className="block rounded-sm border border-hs-border p-3 hover:border-hs-teal">
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-9 items-center justify-center rounded-full bg-[#eaf0f6] text-xs font-semibold">{initials(`${contact.firstName} ${contact.lastName}`)}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-hs-link">{contact.firstName} {contact.lastName}</p>
-                      <p className="truncate text-xs">{contact.email}</p>
-                      <p className="text-xs">{contact.phone}</p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[11px] text-slate-500">Primary · Buyer</p>
-                </Link>
-              )}
-            </AssocCard>
-            <AssocCard title="Companies" count={0} />
-            <AssocCard title="Attachments" count={(contractFile ? 1 : 0) + 3} onAdd={false}>
-              <ul className="space-y-1.5 text-xs">
-                {['gd-f-passport', 'gd-f-address', 'gd-f-application', contract.driveFileId].filter(Boolean).map((id) => {
-                  const f = state.drive.files.find((x) => x.id === id)
-                  if (!f) return null
-                  return (
-                    <li key={f.id}>
-                      <Link to={`/documents/${f.parentId}?file=${f.id}`} className="flex items-center gap-1.5 text-hs-link hover:underline"><FileText size={13} /> <span className="truncate">{f.name}</span></Link>
-                    </li>
-                  )
-                })}
-              </ul>
-              <p className="mt-2 text-[11px] text-slate-500">Linked from Google Drive (simulated)</p>
-            </AssocCard>
-            <AssocCard title="Invoices" count={state.xero.invoice ? 1 : 0} onAdd={false}>
-              {state.xero.invoice ? (
-                <Link to="/accounting/invoice" className="block rounded-sm border border-hs-border p-3 text-xs hover:border-hs-teal">
-                  <p className="text-sm font-semibold text-hs-link">{state.xero.invoice.number}</p>
-                  <p>{state.xero.invoice.status} · Xero (simulated)</p>
-                </Link>
-              ) : (
-                <p className="text-xs text-slate-500">Created in Xero when the contract is approved.</p>
-              )}
-            </AssocCard>
-          </div>
-        }
-      />
+        </section>
+
+        <aside className="scroll-thin hidden w-[320px] shrink-0 overflow-y-auto border-l border-hs-border bg-white lg:block">
+          <Collapsible title="About this deal" actions={<span className="text-xs text-hs-link">Actions ▾</span>}>
+            <PropRow label="Project" value={deal.project} />
+            <PropRow label="Lot ID" value={deal.lotId} mono />
+            <PropRow label="Buyer ID" value={deal.buyerId} mono />
+            <PropRow label="Sale price" value={vt(deal.amount)} />
+            <PropRow label="Currency" value={deal.currency} />
+            <PropRow label="Settlement date" value={longDate(deal.settlementDate)} />
+            <PropRow label="Sales representative" value={deal.owner} />
+            <PropRow label="Pipeline" value={deal.pipeline} />
+            <PropRow label="Deal key" value={`${deal.lotId}-${deal.buyerId}`} mono />
+            <PropRow label="Contract status" value={contract.signature === 'Signed' ? 'Signed' : contract.status === 'Approved' ? 'Approved — out for signature' : contract.status === 'Generated' ? 'Draft' : 'Not generated'} />
+            <PropRow label="Xero invoice number" value={deal.xeroInvoice ?? ''} mono />
+            <PropRow label="Last modified date" value={dateTime(deal.updatedAt)} />
+          </Collapsible>
+          <Collapsible title="Integration references" defaultOpen={false}>
+            <PropRow label="Process Street run" value={<Link className="text-hs-link" to="/workflow">{IDS.processStreetRun}</Link>} mono />
+            <PropRow label="Transaction ID" value={IDS.transaction} mono />
+            <PropRow label="Google Drive folder" value={<Link className="text-hs-link" to={`/documents/${IDS.driveFolder}`}>{IDS.driveFolder}</Link>} mono />
+            <PropRow label="Contract" value={<Link className="text-hs-link" to="/contracts">{IDS.contract}</Link>} mono />
+          </Collapsible>
+          <AssocCard title="Contacts" count={contact ? 1 : 0}>
+            {contact && (
+              <Link to="/crm/contact" className="block rounded-[3px] border border-hs-border p-3 hover:border-hs-teal">
+                <p className="text-sm font-semibold text-hs-link">{contact.firstName} {contact.lastName}</p>
+                <p className="truncate text-xs">{contact.email} · {contact.phone}</p>
+                <p className="mt-1 text-[11px] text-[#516f90]">Primary · Buyer · {contact.id}</p>
+              </Link>
+            )}
+          </AssocCard>
+          <AssocCard title="Companies" count={0} />
+        </aside>
+      </div>
+
+      <ConfirmDialog
+        open={!!pendingStage}
+        title={`Move deal to “${pendingStage}”?`}
+        confirmLabel="Move deal"
+        confirmClassName="bg-hs-orange hover:bg-hs-orange hover:brightness-105"
+        onCancel={() => setPendingStage(null)}
+        onConfirm={() => { const st = pendingStage!; setPendingStage(null); run((s) => setDealStage(s, deal.id, st)) }}
+      >
+        {pendingStage === 'Closed Won'
+          ? <>This triggers <b>Zap 3</b>. Its filter checks the contract is approved and signed before anything is created in Xero — moving the stage alone does not create an invoice.</>
+          : <>The stage change is logged on the timeline. Zaps listen for specific stages only (Closed Won → Zap 3).</>}
+      </ConfirmDialog>
     </HubSpotChrome>
+  )
+}
+
+function AssocTile({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  return (
+    <div className="rounded-[3px] border border-hs-border bg-white">
+      <p className="border-b border-hs-border px-3 py-2 text-[13px] font-semibold">{title} <span className="font-normal text-[#516f90]">({count})</span></p>
+      <div className="p-3">{children}</div>
+    </div>
   )
 }
 

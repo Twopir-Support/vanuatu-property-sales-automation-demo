@@ -1,5 +1,7 @@
 import {
   Activity,
+  PlayCircle,
+  Presentation,
   BookOpen,
   FlaskConical,
   Inbox,
@@ -19,13 +21,15 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { COMPANY } from '../../data/ids'
 import { cn } from '../../lib/format'
 import { useDemo } from '../../store/DemoStore'
 import { hubspotHasPendingChanges } from '../../store/engine'
 import { Toaster } from '../ui/Toaster'
+import { ConfirmDialog } from '../ui/overlays'
+import { DemoGuide } from './DemoGuide'
 
 type NavItem = { to: string; label: string; Icon: typeof Activity; sub?: string; end?: boolean }
 const NAV: { group?: string; items: NavItem[] }[] = [
@@ -66,8 +70,14 @@ export function DemoBanner() {
 }
 
 export function AppShell() {
-  const { state, reset } = useDemo()
+  const { state, reset, interviewMode, setInterviewMode, guideOpen, setGuideOpen } = useDemo()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  useEffect(() => {
+    // Interview Demo Mode: fixed laptop layout and dev-only controls hidden (see index.css).
+    if (interviewMode) document.documentElement.dataset.interview = 'on'
+    else delete document.documentElement.dataset.interview
+  }, [interviewMode])
   const loc = useLocation()
   const productView = /^\/(workflow|crm|documents|accounting|zaps|bills)/.test(loc.pathname)
   // Failures still awaiting a successful retry (a retried key is recorded in processedKeys).
@@ -94,7 +104,7 @@ export function AppShell() {
                 end={end}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
-                  cn('flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors', isActive ? 'bg-brand-700 text-white' : 'hover:bg-slate-800 hover:text-white')
+                  cn('flex items-center gap-2.5 rounded-md px-2.5 py-[5px] text-sm transition-colors', isActive ? 'bg-brand-700 text-white' : 'hover:bg-slate-800 hover:text-white')
                 }
               >
                 <Icon size={17} className="shrink-0" />
@@ -109,16 +119,21 @@ export function AppShell() {
           </div>
         ))}
       </div>
-      <div className="border-t border-slate-800 px-3 py-2">
-        <button
-          onClick={() => {
-            if (window.confirm('Reset all synthetic demo data to the starting scenario?')) reset()
-          }}
-          className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
-        >
-          <RotateCcw size={14} /> Reset demo scenario
-        </button>
-        <p className="px-2.5 pt-1 text-[10px] leading-snug text-slate-500">Concept demo. Not affiliated with or endorsed by Process Street, HubSpot, Xero, Zapier or Google.</p>
+      <div className="border-t border-slate-800 px-2 py-2">
+        <div className="flex gap-1">
+          <button onClick={() => setGuideOpen(!guideOpen)} title="Guided end-to-end demo" className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] hover:bg-slate-800 hover:text-white', guideOpen ? 'bg-slate-800 text-teal-300' : 'text-slate-300')}>
+            <PlayCircle size={13} /> Guide
+          </button>
+          <button onClick={() => { setInterviewMode(!interviewMode); if (!interviewMode) setGuideOpen(true) }} title="Interview Demo Mode" className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] hover:bg-slate-800 hover:text-white', interviewMode ? 'bg-slate-800 text-teal-300' : 'text-slate-300')}>
+            <Presentation size={13} /> Interview{interviewMode ? ' · on' : ''}
+          </button>
+          {!interviewMode && (
+            <button onClick={() => setConfirmReset(true)} title="Reset demo scenario" aria-label="Reset demo scenario" className="flex items-center justify-center rounded-md px-2 py-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+              <RotateCcw size={13} />
+            </button>
+          )}
+        </div>
+        <p className="px-1.5 pt-1 text-[10px] leading-snug text-slate-500">Concept demo · not affiliated with Process Street, HubSpot, Xero, Zapier or Google.</p>
       </div>
     </nav>
   )
@@ -141,12 +156,16 @@ export function AppShell() {
             </button>
             <span className="text-sm font-semibold">Property Sales Automation</span>
           </div>
-          <main className={cn('min-h-0 flex-1', productView ? 'flex flex-col overflow-hidden' : 'scroll-thin overflow-y-auto')}>
+          <main className={cn('min-h-0 flex-1', productView ? 'flex flex-col overflow-hidden' : 'scroll-thin overflow-y-auto', guideOpen && !productView && 'pb-28', guideOpen && productView && 'pb-[88px]')}>
             <Outlet />
           </main>
         </div>
       </div>
+      <DemoGuide />
       <Toaster />
+      <ConfirmDialog open={confirmReset} title="Reset the demo scenario?" confirmLabel="Reset demo" tone="danger" onCancel={() => setConfirmReset(false)} onConfirm={() => { setConfirmReset(false); reset() }}>
+        All synthetic records return to the starting point: steps 1–5 complete, deal in Contract Approval, no contract, no Drive folder, no Xero invoice. Nothing outside this browser is affected.
+      </ConfirmDialog>
     </div>
   )
 }

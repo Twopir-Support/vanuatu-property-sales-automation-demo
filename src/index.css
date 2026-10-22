@@ -60,3 +60,7 @@ body {
 .animate-flash { animation: flash 1.6s ease-out; }
 
 input[type='checkbox'] { accent-color: currentColor; }
+
+/* Interview Demo Mode: fixed laptop layout, development-only controls hidden. */
+[data-interview] body { min-width: 1280px; }
+[data-interview] .dev-only { display: none !important; }

@@ -31,12 +31,13 @@ import {
   Share,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Drawer } from '../components/ui/overlays'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { contractPreview } from '../data/seed'
-import { IDS } from '../data/ids'
-import type { DriveFile } from '../data/types'
-import { cn, driveDate, dateTime, initials, longDate, vt } from '../lib/format'
+import { IDS, USERS } from '../data/ids'
+import type { DemoState, DriveFile } from '../data/types'
+import { cn, driveDate, dateTime, initials, longDate, time, vt } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
 import { createDriveFolder, toggleStar, uploadDriveFile } from '../store/engine'
 
@@ -75,13 +76,18 @@ export default function Documents() {
   const navigate = useNavigate()
   const { folderId = IDS.driveFolder } = useParams()
   const [params, setParams] = useSearchParams()
-  const previewId = params.get('file')
+  const fileId = params.get('file')
+  const previewId = params.get('view') === 'preview' ? fileId : null
+  const [sort, setSort] = useState<'name' | 'modified'>('name')
   const files = state.drive.files
   // The LOT-025 folder only exists once Zap 2A has run; fall back to the development folder.
   const folder = files.find((f) => f.id === folderId) ?? files.find((f) => f.id === IDS.driveFolder) ?? files.find((f) => f.id === 'gd-hvr')!
   const children = files.filter((f) => f.parentId === folder.id)
-  const folders = children.filter((f) => f.type === 'folder').sort((a, b) => a.name.localeCompare(b.name))
-  const docs = children.filter((f) => f.type !== 'folder').sort((a, b) => a.name.localeCompare(b.name))
+  const byName = (a: DriveFile, b: DriveFile) => a.name.localeCompare(b.name)
+  const byModified = (a: DriveFile, b: DriveFile) => b.modifiedAt.localeCompare(a.modifiedAt)
+  const folders = children.filter((f) => f.type === 'folder').sort(sort === 'name' ? byName : byModified)
+  const docs = children.filter((f) => f.type !== 'folder').sort(sort === 'name' ? byName : byModified)
+  const lotFolderMissing = folder.id === 'gd-hvr' && !files.some((f) => f.id === IDS.driveFolder)
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [selected, setSelected] = useState<string | null>(null)
   const [details, setDetails] = useState(false)
@@ -143,7 +149,7 @@ export default function Documents() {
           </div>
           <div className="flex h-12 max-w-2xl flex-1 items-center gap-3 rounded-full bg-gd-search px-4 focus-within:bg-white focus-within:shadow">
             <Search size={20} className="text-gd-muted" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search in Drive" className="flex-1 bg-transparent text-base outline-none" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search files" className="flex-1 bg-transparent text-base outline-none" />
             {q && <button onClick={() => setQ('')}><X size={18} /></button>}
             <SlidersHorizontal size={18} className="text-gd-muted" />
           </div>
@@ -195,10 +201,9 @@ export default function Documents() {
                 <span>Search results for “{q}”</span>
               ) : (
                 <>
-                  <Link to="/documents/gd-root" className="rounded-full px-2 py-0.5 text-gd-muted hover:bg-slate-100">Shared drives</Link>
                   {crumbs.map((c, i) => (
                     <span key={c.id} className="flex items-center">
-                      <ChevronRight size={20} className="text-gd-muted" />
+                      {i > 0 && <ChevronRight size={20} className="text-gd-muted" />}
                       {i === crumbs.length - 1 ? (
                         <span className="flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-slate-100">{c.name} <ChevronDown size={18} /></span>
                       ) : (
@@ -217,10 +222,17 @@ export default function Documents() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 px-6 py-2">
-              {['Type', 'People', 'Modified', 'Source'].map((c) => (
+              {['Type', 'People', 'Modified'].map((c) => (
                 <span key={c} className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#747775] px-3 text-sm">{c} <ChevronDown size={16} /></span>
               ))}
-              {folder.id === IDS.driveFolder && <span className="ml-2 self-center text-xs text-gd-muted">Auto-created by integration for {IDS.transaction}</span>}
+              {folder.id === IDS.driveFolder && <span className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#e8f0fe] px-3 text-xs text-gd-blue">Created by Zap 2A for {IDS.transaction}</span>}
+              <label className="ml-auto inline-flex h-8 items-center gap-1.5 text-sm text-gd-muted">
+                Sort
+                <select value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'modified')} className="rounded-lg border border-[#747775] bg-white px-2 py-1 text-sm text-gd-text">
+                  <option value="name">Name</option>
+                  <option value="modified">Last modified</option>
+                </select>
+              </label>
             </div>
 
             <div className="flex min-h-0 flex-1">
@@ -298,6 +310,16 @@ export default function Documents() {
                     </div>
                   </div>
                 )}
+                {lotFolderMissing && !searchResults && (
+                  <div className="mx-2 mt-3 flex items-start gap-3 rounded-xl border border-dashed border-[#c4c7c5] px-4 py-3 text-sm">
+                    <Folder size={20} className="mt-0.5 text-gd-muted" />
+                    <div>
+                      <p className="font-medium">No folder for LOT-025 — Alex Morgan yet</p>
+                      <p className="text-gd-muted">Zap 2A creates it (with 5 sub-folders and the supporting documents) when step 6 “Contract generated” is completed in Process Street.</p>
+                      <Link to="/workflow?step=6" className="mt-1 inline-block font-medium text-gd-blue hover:underline">Go to step 6 →</Link>
+                    </div>
+                  </div>
+                )}
                 {rows.length === 0 && (
                   <div className="flex flex-col items-center py-16 text-center text-gd-muted">
                     <Folder size={56} strokeWidth={1} />
@@ -350,7 +372,7 @@ export default function Documents() {
         )}
 
         {newFolder !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={() => setNewFolder(null)}>
+          <div className="fixed inset-0 z-[59] flex items-center justify-center bg-black/40" onMouseDown={() => setNewFolder(null)}>
             <div className="w-96 rounded-3xl bg-white p-6 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
               <h2 className="mb-4 text-2xl">New folder</h2>
               <input autoFocus value={newFolder} onChange={(e) => setNewFolder(e.target.value)} onFocus={(e) => e.target.select()} className="w-full rounded border border-[#747775] px-3 py-2.5 outline-none focus:border-2 focus:border-gd-blue" />
@@ -370,7 +392,8 @@ export default function Documents() {
           </div>
         )}
 
-        {previewId && <Preview fileId={previewId} onClose={() => setParams({})} />}
+        {fileId && !previewId && <FileDrawer fileId={fileId} onClose={() => setParams({})} onOpen={() => setParams({ file: fileId, view: 'preview' })} />}
+        {previewId && <Preview fileId={previewId} onClose={() => setParams({ file: previewId })} />}
       </div>
     </ProductFrame>
   )
@@ -388,7 +411,7 @@ function Preview({ fileId, onClose }: { fileId: string; onClose: () => void }) {
   const t = state.transaction
   const isContract = f.id === state.contract.driveFileId
   return (
-    <div className="fixed inset-0 top-7 z-50 flex flex-col bg-[#000000cc] text-white">
+    <div className="fixed inset-0 top-7 z-[58] flex flex-col bg-[#000000cc] text-white">
       <div className="flex h-16 shrink-0 items-center gap-3 px-4">
         <button onClick={onClose} className="rounded-full p-2 hover:bg-white/10" aria-label="Close preview"><ArrowLeft size={20} /></button>
         <FileIcon type={f.type} />
@@ -431,5 +454,81 @@ function Preview({ fileId, onClose }: { fileId: string; onClose: () => void }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Activity shown for a file, derived from the same contract/engine timestamps the other screens use. */
+function fileActivity(s: DemoState, f: DriveFile): { at: string; text: string; who: string }[] {
+  const c = s.contract
+  const out: { at: string; text: string; who: string }[] = []
+  if (f.id.startsWith('gd-f-contract')) {
+    if (c.generatedAt) out.push({ at: c.generatedAt, text: 'Contract generated from template', who: 'Zap 2A' })
+    if (f.id.includes('contract-v') && !f.id.includes('approved') && !f.id.includes('signed')) out.push({ at: f.modifiedAt, text: 'Draft uploaded to 04 Contracts', who: 'Zap 2A' })
+    if (c.reviewRequestedAt) out.push({ at: c.reviewRequestedAt, text: `Approval requested from ${USERS.director}`, who: USERS.sales })
+    if (c.approvedAt && (f.id.includes('approved') || f.id.includes('signed'))) out.push({ at: c.approvedAt, text: `Approved by ${c.approver}; PDF uploaded`, who: 'Zap 2B' })
+    if (c.sentAt && (f.id.includes('approved') || f.id.includes('signed'))) out.push({ at: c.sentAt, text: `Sent to ${s.transaction.email} for e-signature`, who: 'Zap 2B' })
+    if (c.signedAt && f.id.includes('signed')) out.push({ at: c.signedAt, text: 'Signed PDF uploaded · deal Closed Won', who: 'Zap 2C' })
+  } else if (f.parentId?.startsWith('gd-025') || f.id === IDS.driveFolder) {
+    out.push({ at: f.modifiedAt, text: f.type === 'folder' ? 'Folder created' : 'Copied from Process Street run upload', who: 'Zap 2A' })
+  } else {
+    out.push({ at: f.modifiedAt, text: 'Last modified', who: f.owner })
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at))
+}
+
+function locationOf(s: DemoState, f: DriveFile) {
+  const parts: string[] = []
+  let cur = s.drive.files.find((x) => x.id === f.parentId)
+  while (cur) { parts.unshift(cur.name); cur = s.drive.files.find((x) => x.id === cur!.parentId) }
+  return parts.join(' › ')
+}
+
+function FileDrawer({ fileId, onClose, onOpen }: { fileId: string; onClose: () => void; onOpen: () => void }) {
+  const { state } = useDemo()
+  const f = state.drive.files.find((x) => x.id === fileId)
+  if (!f) return null
+  const inLot = locationOf(state, f).includes('LOT-025') || f.id === IDS.driveFolder
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      width={400}
+      title={<span className="flex items-center gap-2"><FileIcon type={f.type} size={18} /> {f.name}</span>}
+      subtitle={typeIcon[f.type].label}
+      footer={<>
+        {f.type !== 'folder' && <button onClick={onOpen} className="rounded-full bg-gd-blue px-4 py-1.5 text-sm font-medium text-white hover:brightness-110">Open preview</button>}
+        <button className="rounded-full border border-[#747775] px-4 py-1.5 text-sm font-medium text-gd-blue">Share</button>
+      </>}
+    >
+      <div className="space-y-5 px-5 py-4 text-sm" style={{ fontFamily: "'Google Sans', Roboto, Inter, sans-serif" }}>
+        <div className="flex h-40 items-center justify-center rounded-xl bg-[#f0f4f9]"><FileIcon type={f.type} size={56} /></div>
+        <section>
+          <h3 className="mb-2 font-medium">File details</h3>
+          <dl className="space-y-2.5 text-[13px]">
+            {([
+              ['Owner', f.owner],
+              ['Modified', dateTime(f.modifiedAt)],
+              ['Location', locationOf(state, f) || 'Shared drive'],
+              ['Status', f.label ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', labelCls[f.label])}>{f.label}</span> : '—'],
+              ['Transaction ID', inLot ? <span className="font-mono">{IDS.transaction}</span> : '—'],
+              ...(f.sizeKb ? [['Size', sizeLabel(f.sizeKb)]] : []),
+            ] as [string, React.ReactNode][]).map(([k, v]) => (
+              <div key={k} className="grid grid-cols-[110px_1fr] gap-2"><dt className="text-gd-muted">{k}</dt><dd className="break-words">{v}</dd></div>
+            ))}
+          </dl>
+        </section>
+        <section>
+          <h3 className="mb-2 font-medium">Activity</h3>
+          <ol className="space-y-2.5">
+            {fileActivity(state, f).map((a, i) => (
+              <li key={i} className="grid grid-cols-[48px_1fr] gap-2 text-[13px]">
+                <span className="font-medium text-gd-muted tabular-nums">{time(a.at)}</span>
+                <span>{a.text}<span className="block text-xs text-gd-muted">{a.who}</span></span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </Drawer>
   )
 }

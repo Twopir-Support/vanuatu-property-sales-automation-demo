@@ -14,7 +14,8 @@ export interface IntegrationStatus {
 }
 
 function lastFailed(s: DemoState, target: SystemId) {
-  const last = s.events.find((e) => e.target === target && e.status !== 'duplicate')
+  // Only LOT-025's own runs drive its status; example failures on other lots live in the monitor.
+  const last = s.events.find((e) => e.target === target && e.status !== 'duplicate' && (!e.transaction || e.transaction === IDS.transaction))
   return last?.status === 'failed'
 }
 

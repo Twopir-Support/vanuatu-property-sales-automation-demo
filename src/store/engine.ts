@@ -50,7 +50,12 @@ function addTimeline(s: DemoState, item: Omit<HubSpotTimelineItem, 'id' | 'at'>)
 }
 
 function addEvent(s: DemoState, e: Omit<AutomationEvent, 'id' | 'at' | 'durationMs'> & { durationMs?: number }): DemoState {
-  const event: AutomationEvent = { id: uid('ev'), at: nowIso(), durationMs: e.durationMs ?? fakeDuration(), ...e }
+  // Attempt n = failed runs already recorded for this key + 1 (resets once the key succeeds).
+  const priorFailures = s.processedKeys.includes(e.idempotencyKey) ? 0 : s.events.filter((x) => x.idempotencyKey === e.idempotencyKey && x.status === 'failed').length
+  const event: AutomationEvent = {
+    id: uid('ev'), at: nowIso(), durationMs: e.durationMs ?? fakeDuration(),
+    transaction: IDS.transaction, attempt: priorFailures + 1, ...e,
+  }
   const processedKeys =
     e.status === 'success' && !s.processedKeys.includes(e.idempotencyKey)
       ? [...s.processedKeys, e.idempotencyKey]
@@ -77,6 +82,8 @@ function failed(s: DemoState, base: Omit<AutomationEvent, 'id' | 'at' | 'duratio
   const state = addEvent(s, {
     ...base,
     status: 'failed',
+    errorClass: 'Retryable',
+    errorMessage: `${target} API returned 503 Service Unavailable.`,
     result: `${target} API returned 503 Service Unavailable (simulated). Retry policy: 3 attempts with exponential backoff, then alert.`,
   })
   return {
@@ -274,8 +281,8 @@ export function generateContract(s: DemoState, trigger = 'Process Street: step 6
   const fileId = 'gd-f-contract-v1'
   const file: DriveFile = {
     id: fileId,
-    name: `${t.lotId}_SaleAgreement_v1_DRAFT`,
-    type: 'doc',
+    name: 'Sale Contract — Draft.pdf',
+    type: 'pdf',
     parentId: CONTRACTS_FOLDER,
     owner: USERS.integration,
     modifiedAt: now,
@@ -324,10 +331,10 @@ export function approveContract(s: DemoState, approver: string, trigger = 'Proce
 
   const now = nowIso()
   const approvedId = 'gd-f-contract-v1-approved'
-  const approvedFile: DriveFile = { id: approvedId, name: `${t.lotId}_SaleAgreement_v1_APPROVED.pdf`, type: 'pdf', parentId: CONTRACTS_FOLDER, owner: USERS.integration, modifiedAt: now, sizeKb: 182, label: 'Approved' }
+  const approvedFile: DriveFile = { id: approvedId, name: 'Sale Contract — Approved.pdf', type: 'pdf', parentId: CONTRACTS_FOLDER, owner: USERS.integration, modifiedAt: now, sizeKb: 182, label: 'Approved' }
   let state: DemoState = {
     ...s,
-    contract: { ...s.contract, status: 'Approved', approvedAt: now, approver, signature: 'Out for signature', sentAt: now, approvedFileId: approvedId },
+    contract: { ...s.contract, status: 'Approved', approvedAt: now, approver, signature: 'Out for signature', sentAt: now, approvedFileId: approvedId, reviewRequestedAt: s.contract.reviewRequestedAt ?? now },
     documents: s.documents.map((d) => (d.id === 'doc-contract' ? { ...d, status: 'Approved', driveFileId: approvedId } : d)),
     drive: { files: [...s.drive.files.filter((f) => f.id !== approvedId), approvedFile] },
     hubspot: { ...s.hubspot, deals: s.hubspot.deals.map((d) => (d.id === IDS.hubspotDeal ? { ...d, stage: 'Out for Signature' as DealStage, updatedAt: now } : d)) },
@@ -360,7 +367,7 @@ export function signContract(s: DemoState, trigger = 'E-signature: document comp
 
   const now = nowIso()
   const signedId = 'gd-f-contract-v1-signed'
-  const signedFile: DriveFile = { id: signedId, name: `${t.lotId}_SaleAgreement_v1_SIGNED.pdf`, type: 'pdf', parentId: CONTRACTS_FOLDER, owner: USERS.integration, modifiedAt: now, sizeKb: 240, label: 'Signed' }
+  const signedFile: DriveFile = { id: signedId, name: 'Sale Contract — Signed.pdf', type: 'pdf', parentId: CONTRACTS_FOLDER, owner: USERS.integration, modifiedAt: now, sizeKb: 240, label: 'Signed' }
   let state: DemoState = {
     ...s,
     contract: { ...s.contract, signature: 'Signed', signedAt: now, signedFileId: signedId },
@@ -387,9 +394,11 @@ export function invoiceRules(s: DemoState): InvoiceRule[] {
     { label: 'Deal stage is Closed Won', pass: deal?.stage === 'Closed Won', detail: `Stage: ${deal?.stage ?? '—'}` },
     { label: 'Contract approved internally', pass: s.contract.status === 'Approved', detail: s.contract.approver ? `By ${s.contract.approver}` : 'Not approved' },
     { label: 'Contract signed by buyer', pass: s.contract.signature === 'Signed', detail: s.contract.signature },
-    { label: 'Buyer ID and Lot ID present', pass: !!deal?.buyerId && !!deal?.lotId, detail: `${deal?.buyerId || '—'} · ${deal?.lotId || '—'}` },
-    { label: 'Amount > 0 and currency VUV', pass: (deal?.amount ?? 0) > 0 && deal?.currency === 'VUV', detail: deal ? vt(deal.amount) : '—' },
-    { label: 'No Xero invoice already linked', pass: !deal?.xeroInvoice, detail: deal?.xeroInvoice ?? 'None' },
+    { label: 'Buyer ID present', pass: !!deal?.buyerId, detail: deal?.buyerId || '—' },
+    { label: 'Lot ID present', pass: !!deal?.lotId, detail: deal?.lotId || '—' },
+    { label: 'Amount > 0', pass: (deal?.amount ?? 0) > 0, detail: deal ? vt(deal.amount) : '—' },
+    { label: 'Currency VUV', pass: deal?.currency === 'VUV', detail: deal?.currency ?? '—' },
+    { label: 'Existing invoice? No', pass: !deal?.xeroInvoice, detail: deal?.xeroInvoice ?? 'None linked' },
   ]
 }
 
@@ -403,10 +412,10 @@ export function createXeroInvoice(s: DemoState, trigger: string): Result {
     target: 'xero' as SystemId,
     action: 'Filter rules · find/create Xero contact · create DRAFT invoice · update deal',
     idempotencyKey: key,
-    payload: { dealId: IDS.hubspotDeal, contact: t.buyerName, email: t.email, reference: `${t.lotId} Deposit · ${IDS.hubspotDeal}`, amount: Math.round(t.salePrice * 0.1) },
+    payload: { dealId: IDS.hubspotDeal, contact: t.buyerName, email: t.email, reference: t.lotId, amount: Math.round(t.salePrice * 0.1) },
   }
   if (isProcessed(s, key)) return duplicate(s, base, `Invoice ${IDS.xeroInvoice} already exists`)
-  const failedRules = invoiceRules(s).filter((r) => !r.pass && r.label !== 'No Xero invoice already linked')
+  const failedRules = invoiceRules(s).filter((r) => !r.pass && r.label !== 'Existing invoice? No')
   if (failedRules.length) {
     const state = addEvent(s, { ...base, status: 'blocked', result: `Filter: stopped — not met: ${failedRules.map((r) => r.label.toLowerCase()).join('; ')}. Nothing created in Xero.` })
     return { state, notice: { kind: 'warning', title: 'Zap 3 stopped by filter', message: `Not created in Xero: ${failedRules[0].label.toLowerCase()} is not met.` } }
@@ -424,7 +433,7 @@ export function createXeroInvoice(s: DemoState, trigger: string): Result {
     number: IDS.xeroInvoice,
     contactId: existing?.id ?? IDS.xeroContact,
     contactName: t.buyerName,
-    reference: `${t.lotId} Deposit · ${IDS.hubspotDeal}`,
+    reference: t.lotId,
     date: now,
     dueDate: due.toISOString(),
     status: 'Draft',
@@ -439,7 +448,7 @@ export function createXeroInvoice(s: DemoState, trigger: string): Result {
     xero: { ...s.xero, contacts, invoice },
     hubspot: { ...s.hubspot, deals: s.hubspot.deals.map((d) => (d.id === IDS.hubspotDeal ? { ...d, xeroInvoice: IDS.xeroInvoice, updatedAt: now } : d)) },
   }
-  state = addEvent(state, { ...base, status: 'success', result: `All 6 rules passed · ${existing ? 'contact matched' : `contact created (${IDS.xeroContact})`} · DRAFT ${IDS.xeroInvoice} ${vt(t.salePrice * 0.1 + 45_000 * 1.15)} · deal updated with invoice number` })
+  state = addEvent(state, { ...base, status: 'success', result: `All ${invoiceRules(s).length} rules passed · ${existing ? 'contact matched' : `contact created (${IDS.xeroContact})`} · DRAFT ${IDS.xeroInvoice} ${vt(t.salePrice * 0.1 + 45_000 * 1.15)} · deal updated with invoice number` })
   state = addTimeline(state, { type: 'integration', title: 'Deposit invoice drafted in Xero', body: `${IDS.xeroInvoice} (Draft) · reference ${invoice.reference}`, actor: USERS.integration })
   state = addActivity(state, 'xero', USERS.integration, `Draft invoice ${IDS.xeroInvoice} created in Xero`)
   return { state, notice: { kind: 'success', title: 'Xero draft invoice created', message: `${IDS.xeroInvoice} is waiting for finance approval.` } }
@@ -572,6 +581,7 @@ export function replayEvent(s: DemoState, eventId: string): Result {
   const ev = s.events.find((e) => e.id === eventId)
   if (!ev) return { state: s }
   const trigger = ev.status === 'failed' ? `Manual retry of ${ev.id}` : `Manual replay of ${ev.id}`
+  if (ev.transaction && ev.transaction !== IDS.transaction) return retryOtherTransaction(s, ev)
   if (isProcessed(s, ev.idempotencyKey)) {
     return duplicate(s, { scenario: ev.scenario, trigger, source: ev.source, target: ev.target, action: ev.action, idempotencyKey: ev.idempotencyKey, payload: ev.payload }, 'This event was already processed successfully')
   }
@@ -757,4 +767,86 @@ export function setBillStatus(s: DemoState, billId: string, status: XeroBill['st
     'xero', USERS.finance, `Bill ${bill.invoiceNumber}: ${status}`,
   )
   return { state, notice: { kind: 'success', title: `Bill ${bill.invoiceNumber} → ${status}` } }
+}
+
+/* ------------------------------------------------------------------ */
+/* Monitor: example failures on other transactions                      */
+/* ------------------------------------------------------------------ */
+
+/** Retry for the seeded LOT-024 / LOT-027 examples. Validation errors stay paused until fixed. */
+function retryOtherTransaction(s: DemoState, ev: AutomationEvent): Result {
+  if (isProcessed(s, ev.idempotencyKey)) {
+    return duplicate(s, { scenario: ev.scenario, trigger: `Manual replay of ${ev.id}`, source: ev.source, target: ev.target, action: ev.action, idempotencyKey: ev.idempotencyKey, payload: ev.payload, transaction: ev.transaction }, 'This event was already processed successfully')
+  }
+  if (ev.errorClass === 'Validation' && !ev.fixed) {
+    return { state: s, notice: { kind: 'warning', title: 'Validation error — not retried', message: `${ev.errorMessage ?? 'Required data missing'}. Fix the record first, then retry.` } }
+  }
+  const base = { scenario: ev.scenario, trigger: `Manual retry of ${ev.id}`, source: ev.source, target: ev.target, action: ev.action, idempotencyKey: ev.idempotencyKey, payload: ev.payload, transaction: ev.transaction }
+  if (s.settings.simulateFailure) return failed(s, base, ev.target === 'xero' ? 'Xero' : 'HubSpot')
+  const result = ev.errorClass === 'Validation'
+    ? `Settlement date now present · ${ev.transaction} updated in HubSpot · 0 duplicates`
+    : `Xero contact created for ${String(ev.payload.contact ?? 'buyer')} · DRAFT invoice created · reference written back to ${String(ev.payload.dealId ?? 'deal')}`
+  let state = addEvent(s, { ...base, status: 'success', result })
+  state = addActivity(state, 'automation', USERS.integration, `${ev.transaction}: ${ev.scenario.split(' · ')[0]} succeeded on retry`)
+  return { state, notice: { kind: 'success', title: 'Retry succeeded', message: `${ev.transaction} · ${ev.scenario.split(' · ')[0]}` } }
+}
+
+export function assignEvent(s: DemoState, eventId: string, who: string): Result {
+  const ev = s.events.find((e) => e.id === eventId)
+  if (!ev) return { state: s }
+  const state = addActivity({ ...s, events: s.events.map((e) => (e.id === eventId ? { ...e, assignedTo: who } : e)) }, 'automation', USERS.sales, `Assigned ${ev.id} (${ev.transaction}) to ${who}`)
+  return { state, notice: { kind: 'success', title: `Assigned to ${who}` } }
+}
+
+export function markEventFixed(s: DemoState, eventId: string): Result {
+  const state = { ...s, events: s.events.map((e) => (e.id === eventId ? { ...e, fixed: true } : e)) }
+  return { state: addActivity(state, 'process-street', USERS.sales, 'Settlement date entered on run PS-RUN-0427 (LOT-027)'), notice: { kind: 'info', title: 'Data fixed', message: 'Settlement date added. The run can now be retried.' } }
+}
+
+/* ------------------------------------------------------------------ */
+/* Workflow run: comments, uploads, contract review                     */
+/* ------------------------------------------------------------------ */
+
+export function addStepComment(s: DemoState, stepId: number, user: string, text: string): Result {
+  const state = { ...s, stepComments: [...s.stepComments, { id: uid('cm'), stepId, user, text, at: nowIso() }] }
+  return { state: addActivity(state, 'process-street', user, `Commented on step ${stepId}: “${text}”`), notice: { kind: 'success', title: 'Comment added' } }
+}
+
+export function uploadRunAttachment(s: DemoState, stepId: number, name: string, sizeKb: number, user: string): Result {
+  const state = { ...s, runAttachments: [...s.runAttachments, { id: uid('att'), stepId, name, sizeKb: Math.max(1, Math.round(sizeKb)), user, at: nowIso() }] }
+  return { state: addActivity(state, 'process-street', user, `Uploaded “${name}” to step ${stepId}`), notice: { kind: 'success', title: 'File attached', message: `${name} — kept on the run; Zap 2A copies run uploads to Drive.` } }
+}
+
+export function sendContractForReview(s: DemoState, user: string): Result {
+  if (s.contract.status === 'Not generated') return { state: s, notice: { kind: 'warning', title: 'Generate the draft first' } }
+  if (s.contract.reviewRequestedAt) return { state: s, notice: { kind: 'info', title: 'Already in internal review', message: `Assigned to ${USERS.director}.` } }
+  const now = nowIso()
+  let state: DemoState = { ...s, contract: { ...s.contract, reviewRequestedAt: now } }
+  state = addTimeline(state, { type: 'task', title: 'Task: review sale contract', body: `${IDS.contract} v${s.contract.version} sent to ${USERS.director} for internal review.`, actor: user })
+  state = addActivity(state, 'contracts', user, `Sent ${IDS.contract} v${s.contract.version} for internal review`)
+  return { state, notice: { kind: 'success', title: 'Sent for internal review', message: `Approval task assigned to ${USERS.director} (step 7).` } }
+}
+
+/** New draft version while still in review (e.g. after a change request). Approved contracts are never regenerated. */
+export function regenerateContract(s: DemoState, user: string): Result {
+  const t = s.transaction
+  if (s.contract.status !== 'Generated') {
+    return { state: s, notice: { kind: 'warning', title: 'Cannot regenerate', message: s.contract.status === 'Approved' ? 'The contract is already approved.' : 'Generate the first draft from the workflow.' } }
+  }
+  const v = s.contract.version + 1
+  const key = `contract.generate:${t.id}:v${v}`
+  const base = { scenario: ZAP.z2a, trigger: `Regenerate requested by ${user}`, source: 'contracts' as SystemId, target: 'drive' as SystemId, action: `Populate template → draft v${v}`, idempotencyKey: key, payload: { version: v, template: s.contract.template } }
+  if (isProcessed(s, key)) return duplicate(s, base, `Draft v${v} already exists`)
+  const now = nowIso()
+  const fileId = `gd-f-contract-v${v}`
+  const file: DriveFile = { id: fileId, name: `Sale Contract — Draft v${v}.pdf`, type: 'pdf', parentId: 'gd-025-ctr', owner: USERS.integration, modifiedAt: now, sizeKb: 97, label: 'Draft' }
+  let state: DemoState = {
+    ...s,
+    contract: { ...s.contract, version: v, generatedAt: now, driveFileId: fileId, reviewRequestedAt: undefined },
+    documents: s.documents.map((d) => (d.id === 'doc-contract' ? { ...d, driveFileId: fileId } : d)),
+    drive: { files: [...s.drive.files, file] },
+  }
+  state = addEvent(state, { ...base, status: 'success', result: `Draft v${v} saved to 04 Contracts · previous draft kept for audit` })
+  state = addActivity(state, 'contracts', user, `Regenerated ${IDS.contract} as v${v}`)
+  return { state, notice: { kind: 'success', title: `Draft v${v} generated`, message: 'Send it for review when ready.' } }
 }

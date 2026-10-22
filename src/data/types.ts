@@ -171,6 +171,7 @@ export interface Contract {
   driveFileId?: string
   signature: 'Not sent' | 'Out for signature' | 'Signed'
   sentAt?: string
+  reviewRequestedAt?: string
   signedAt?: string
   approvedFileId?: string
   signedFileId?: string
@@ -190,6 +191,16 @@ export interface AutomationEvent {
   idempotencyKey: string
   status: EventStatus
   durationMs: number
+  /** Transaction the run belongs to; LOT-025 unless stated. */
+  transaction?: string
+  /** 1-based attempt number for this idempotency key. */
+  attempt?: number
+  /** For failed runs: whether a retry can help or the data must be fixed first. */
+  errorClass?: 'Retryable' | 'Validation'
+  errorMessage?: string
+  assignedTo?: string
+  /** Validation errors only: the missing data has been corrected. */
+  fixed?: boolean
   result: string
   payload: Record<string, unknown>
 }
@@ -267,5 +278,7 @@ export interface DemoState {
   settings: DemoSettings
   saleCompleted: boolean
   bills: { emails: InboxEmail[]; xeroBills: XeroBill[] }
+  stepComments: { id: string; stepId: number; user: string; text: string; at: string }[]
+  runAttachments: { id: string; stepId: number; name: string; sizeKb: number; user: string; at: string }[]
   goLive: Record<string, boolean>
 }

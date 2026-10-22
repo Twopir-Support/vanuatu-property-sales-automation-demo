@@ -261,7 +261,7 @@ Sidebar, grouped and readable, with the product name shown under each item:
 - Supplier-bill options A and B, discovery questions and sources.
 
 **Testing & Go-live**
-- 15 executable end-to-end tests against a sandbox copy covering: matching, repeat syncs, price updates, email case handling, contract gating and single generation, Drive filing, approval not touching Xero, the early Closed Won filter, signed + won → one VUV draft, outage and retry, settlement, inbox processing, re-polling, and the low-confidence review.
+- 17 executable end-to-end tests against a sandbox copy covering: matching, repeat syncs, price updates, email case handling, contract gating and single generation, Drive filing, approval not touching Xero, the early Closed Won filter, signed + won → one VUV draft, outage and retry, settlement, inbox processing, re-polling, and the low-confidence review.
 - List of test records (TEST- prefix) and a go-live checklist with persisted ticks.
 
 **Documentation**
@@ -292,7 +292,7 @@ Sidebar, grouped and readable, with the product name shown under each item:
 3. **Guardrail:** drag the HubSpot deal to Closed Won. The Zap 3 filter stops it and Xero is untouched. Set the stage back.
 4. **Flow 2:** check step 6 to produce the Drive folder, supporting documents and the DRAFT. Approve step 7 to file the APPROVED PDF and send for signature. Simulate the signature to file the SIGNED PDF and win the deal.
 5. **Flow 3:** all six rules pass, Xero shows draft INV-0025, and the number is written back to the deal.
-6. **Testing & Go-live:** run 15/15 tests. **Documentation:** download the runbook.
+6. **Testing & Go-live:** run 17/17 tests. **Documentation:** download the runbook.
 7. **Supplier Bills:** poll the inboxes for 4 drafts, 1 duplicate skipped and 1 held for review.
 8. **Outage simulation:** fail and retry in the Monitor. **Reset demo scenario** to finish.
 
@@ -313,6 +313,20 @@ Talking points: understanding of the business; relevant HubSpot, Xero and Zapier
 ## 12. Quality bar before every push
 
 - `npm run build` passes with zero type errors.
-- Drive the app in Chromium (Playwright, `executablePath: /opt/pw-browsers/chromium`): no console errors, 15/15 tests pass, and the full Flow 1 → 2 → 3 sequence works.
+- Drive the app in Chromium (Playwright, `executablePath: /opt/pw-browsers/chromium`): no console errors, 17/17 tests pass, and the full Flow 1 → 2 → 3 sequence works.
 - Regenerate the README screenshots (`docs/screenshots/01–20`) from the running app with notifications hidden.
 - Republish the live demo artifact from `dist/index.html` with its `assets/*` and `favicon.svg` files.
+
+---
+
+## 13. High-fidelity UI update (branch `claude/high-fidelity-product-ui`)
+
+- **Product-style screens:** each is labelled *"Simulated <Product>-style view · Original demo component · Synthetic data"*. They are recreated layouts, not clones; there are no vendor logos or screenshots.
+- **Process Street-style:** app bar, run header, task rows (assignee, due state, comments, attachments, ⋯ menu), locked stop tasks, form widgets (including Currency and required-document checks), uploads, comments, and a right panel with Run details / Integrations / Activity.
+- **HubSpot-style:** record header (stage dropdown with confirmation, amount, owner, Actions), Overview/Activities, Duplicate Check: PASSED (Buyer ID + Email + Lot ID / Deal Key), associated contact, documents and invoice, a properties sidebar, and the "Possible duplicate contact found" dialog (Use existing / Create new / Cancel).
+- **Contract generator:** header "Generate Sale Contract"; template *Residential Lot Sale Agreement v2.1*; merge fields, document preview ("SAMPLE DOCUMENT — NOT A LEGAL AGREEMENT"), validation, Generate Draft / Regenerate / Send for Review, and the lifecycle DRAFT → INTERNAL REVIEW → APPROVED → SENT FOR SIGNATURE → SIGNED.
+- **Google Drive-style:** breadcrumb Pacific Horizon Developments › Harbour View Residences › LOT-025 — Alex Morgan, sorting, an empty state before Zap 2A, and a file-details drawer (owner, modified, location, status, transaction ID, activity). Files: Sale Contract — Draft/Approved/Signed.pdf, Buyer ID — Alex Morgan.pdf, Proof of Address.pdf, Sale Application.pdf.
+- **Xero-style:** sub-navigation (Sales, Invoices, Contacts, Reports, Bills to pay), columns Invoice / Contact / Reference / Date / Due / Amount / Status, reference LOT-025, the banner "SIMULATED XERO TRANSACTION — NOT POSTED TO XERO", and a Zap 3 validation panel with CREATE DRAFT INVOICE.
+- **Zapier-style:** Setup / Configure / Test tabs, field-mapping pills, "Test successful" with LOT-025 · Alex Morgan · VT 12,500,000, and Test & continue.
+- **Automation Monitor:** Event ID / Zap / Source → Destination / Transaction / Status / Duration / Attempts / Timestamp, and an error drawer (Retry Now, View Payload, Assign to Finance). Seeded examples: LOT-024 "Customer could not be matched in Xero" (Retryable, 1/3) and LOT-027 "Missing required field: Settlement Date" (Validation Error; paused until fixed).
+- **Guided end-to-end demo** (14 steps) and **Interview Demo Mode**.

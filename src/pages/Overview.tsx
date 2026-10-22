@@ -1,7 +1,7 @@
 import { ArrowRight, CheckCircle2, Circle, CircleDot, ExternalLink, PlayCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge, Button, Card } from '../components/ui/primitives'
-import { COMPANY, IDS, USERS } from '../data/ids'
+import { COMPANY, IDS } from '../data/ids'
 import { LOTS } from '../data/lots'
 import { cn, date, dateTime, longDate, time, vt } from '../lib/format'
 import { completedSteps, integrationStatuses } from '../lib/status'
@@ -31,7 +31,7 @@ function useNextAction() {
 }
 
 export default function Overview() {
-  const { state } = useDemo()
+  const { state, setGuideOpen, setGuideStep } = useDemo()
   const next = useNextAction()
   const deals = state.hubspot.deals
   const openDeals = deals.filter((d) => d.stage !== 'Closed Won')
@@ -39,7 +39,7 @@ export default function Overview() {
   const today = state.events.filter((e) => new Date(e.at).toDateString() === new Date().toDateString())
   const ok = today.filter((e) => e.status === 'success').length
   const dups = state.events.filter((e) => e.status === 'duplicate').length
-  const failed = state.events.filter((e) => e.status === 'failed').length
+  const failed = state.events.filter((e) => e.status === 'failed' && !state.processedKeys.includes(e.idempotencyKey)).length
   const done = completedSteps(state)
   const deal = deals.find((d) => d.id === IDS.hubspotDeal)!
   const sold = LOTS.filter((l) => l.status === 'Sold').length + (state.saleCompleted ? 1 : 0)
@@ -57,11 +57,12 @@ export default function Overview() {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-medium tracking-wide text-brand-700 uppercase">{COMPANY.name} · {COMPANY.location}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales operations overview</h1>
-          <p className="text-sm text-slate-500">{COMPANY.development} · {longDate(new Date().toISOString())} · signed in as {USERS.sales}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Property Sales Automation · Control Center</h1>
+          <p className="text-sm text-slate-500">How Process Street, HubSpot, Google Drive, Xero and Zapier work together for each lot sale · {COMPANY.development} · {longDate(new Date().toISOString())}</p>
         </div>
         <div className="flex gap-2">
-          <Link to="/lots"><Button>View lot register</Button></Link>
+          <Link to="/lots"><Button>Lot register</Button></Link>
+          <Button onClick={() => { setGuideStep(0); setGuideOpen(true) }}><PlayCircle size={15} /> Start guided demo</Button>
           <Link to="/workflow"><Button variant="primary">Open LOT-025 workflow <ArrowRight size={15} /></Button></Link>
         </div>
       </div>
@@ -71,7 +72,7 @@ export default function Overview() {
         <Kpi label="Open pipeline" value={vt(pipeline)} sub={`${openDeals.length} open deals · Lot Sales pipeline`} to="/crm" />
         <Kpi label="Lots sold · Harbour View" value={`${sold} / ${LOTS.length}`} sub={`${LOTS.filter((l) => l.status === 'Available').length} available · ${LOTS.filter((l) => l.status === 'Under contract').length} under contract`} to="/lots" />
         <Kpi label="Contracts awaiting approval" value={String((state.contract.status === 'Generated' ? 1 : 0) + 1)} sub="Includes LOT-024 (Priya Nair)" to="/contracts" />
-        <Kpi label="Automation runs today" value={String(today.length)} sub={`${ok} succeeded · ${dups} duplicates suppressed · ${failed} failed`} to="/monitor" tone={failed ? 'red' : undefined} />
+        <Kpi label="Automation runs today" value={String(today.length)} sub={`${ok} succeeded · ${dups} duplicates skipped · ${failed} open failures (all lots)`} to="/monitor" tone={failed ? 'red' : undefined} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-3">

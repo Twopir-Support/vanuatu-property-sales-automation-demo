@@ -19,25 +19,25 @@ interface Idea {
 }
 
 const IDEAS: Idea[] = [
-  { id: 'docs', title: 'Buyer document check', phase: 2, value: 'Cuts manual ID / proof-of-address review and catches expired or mismatched documents early.', trigger: 'File uploaded to Drive › 01/02 folders', ai: 'Classify the document, extract name, expiry and address, compare with the Process Street form', human: 'Sales rep confirms flagged mismatches before step 4 can complete', output: 'Document checklist status + exceptions note in HubSpot', systems: ['Drive', 'Process Street', 'HubSpot'], effort: 'M' },
-  { id: 'email', title: 'Buyer update emails (EN / FR / Bislama)', phase: 2, value: 'Consistent, timely buyer communication in the buyer’s preferred language.', trigger: 'Deal stage change in HubSpot', ai: 'Draft a status update from deal, contract and invoice data', human: 'Rep reviews and sends from HubSpot — never auto-sent', output: 'Draft email on the HubSpot contact', systems: ['HubSpot'], effort: 'S' },
-  { id: 'contract', title: 'Contract variance review', phase: 2, value: 'Flags non-standard terms before director approval.', trigger: 'Contract generated (step 6)', ai: 'Compare the generated agreement with the approved template and price list; summarise differences', human: 'Director sees the summary inside the approval task', output: 'Risk summary attached to step 7', systems: ['Drive', 'Process Street'], effort: 'M' },
-  { id: 'hygiene', title: 'CRM data hygiene assistant', phase: 1, value: 'Keeps buyer records clean so matching rules keep working.', trigger: 'Nightly', ai: 'Suggest likely duplicates, missing Buyer IDs, inconsistent phone formats', human: 'Admin approves merges', output: 'Review queue', systems: ['HubSpot'], effort: 'S' },
+  { id: 'docs', title: 'Buyer document check', phase: 3, value: 'Cuts manual ID / proof-of-address review and catches expired or mismatched documents early.', trigger: 'File uploaded to Drive › 01/02 folders', ai: 'Classify the document, extract name, expiry and address, compare with the Process Street form', human: 'Sales rep confirms flagged mismatches before step 4 can complete', output: 'Document checklist status + exceptions note in HubSpot', systems: ['Drive', 'Process Street', 'HubSpot'], effort: 'M' },
+  { id: 'email', title: 'Buyer update email drafting', phase: 3, value: 'Consistent, timely buyer communication in the buyer’s preferred language.', trigger: 'Deal stage change in HubSpot', ai: 'Draft a status update from deal, contract and invoice data', human: 'Rep reviews and sends from HubSpot — never auto-sent', output: 'Draft email on the HubSpot contact', systems: ['HubSpot'], effort: 'S' },
+  { id: 'contract', title: 'Contract variance review', phase: 3, value: 'Flags non-standard terms before director approval.', trigger: 'Contract generated (step 6)', ai: 'Compare the generated agreement with the approved template and price list; summarise differences', human: 'Director sees the summary inside the approval task', output: 'Risk summary attached to step 7', systems: ['Drive', 'Process Street'], effort: 'M' },
+  { id: 'hygiene', title: 'CRM data hygiene', phase: 3, value: 'Keeps buyer records clean so matching rules keep working.', trigger: 'Nightly', ai: 'Suggest likely duplicates, missing Buyer IDs, inconsistent phone formats', human: 'Admin approves merges', output: 'Review queue', systems: ['HubSpot'], effort: 'S' },
   { id: 'recon', title: 'Deposit & settlement reconciliation', phase: 3, value: 'Faster month-end and fewer missed payments.', trigger: 'Xero bank feed line imported', ai: 'Match payments to invoices by reference, amount and buyer; explain low-confidence matches', human: 'Finance confirms suggested matches', output: 'Reconciled invoice + HubSpot payment note', systems: ['Xero', 'HubSpot'], effort: 'L' },
   { id: 'brief', title: 'Weekly sales briefing', phase: 3, value: 'Directors get a one-page view without building reports.', trigger: 'Every Monday 07:30 (Port Vila)', ai: 'Summarise pipeline movement, stuck deals, overdue tasks and cash expected', human: 'Read-only briefing', output: 'Email + Drive PDF', systems: ['HubSpot', 'Process Street', 'Xero'], effort: 'M' },
 ]
 
 const PHASES = [
-  { n: 1, name: 'Go-live: lot sales', when: 'Weeks 1–4', text: 'Zaps 1–3 live before the subdivision launch: Process Street → HubSpot, contract generation, review and e-signature into Drive, and deal won → Xero draft invoice. Tested end to end with test records; runbook handed over.' },
+  { n: 1, name: 'Go-live: Lot Sales', when: 'Weeks 1–4', text: 'Zaps 1–3 live before the subdivision launch: Process Street → HubSpot, contract generation, review and e-signature into Drive, and deal won → Xero draft invoice. Tested end to end with test records; runbook handed over.' },
   { n: 2, name: 'Supplier bills', when: 'Weeks 5–8', text: 'Supplier invoices from the two shared inboxes become Xero draft bills, with a duplicate check across both inboxes and a review queue.' },
-  { n: 3, name: 'AI assistance', when: 'Weeks 9–12', text: 'Human-in-the-loop AI on documents, contracts and buyer communications via Zapier (AI by Zapier or a direct OpenAI / Claude step).' },
+  { n: 3, name: 'AI Assistance', when: 'Weeks 9–12', text: 'Human-in-the-loop AI on documents, contracts and buyer communications via Zapier (AI by Zapier or a direct OpenAI / Claude step).' },
 ]
 
 export default function Roadmap() {
   const [open, setOpen] = useState<string>('email')
   return (
     <div className="mx-auto max-w-[1400px] p-6">
-      <SectionTitle title="AI Automation Roadmap" subtitle="Future AI-powered automations built on the same integration backbone. Proposals only — nothing here calls an AI service." />
+      <SectionTitle title="AI Automation Roadmap" subtitle="A future automation layer on the same Zapier backbone — not part of go-live. Proposals only; nothing here calls an AI service." />
 
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         {PHASES.map((p) => (
@@ -58,7 +58,6 @@ export default function Roadmap() {
             <div key={i.id}>
               <button onClick={() => setOpen(open === i.id ? '' : i.id)} className="flex w-full items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50">
                 {open === i.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                <Sparkles size={16} className="text-violet-600" />
                 <span className="flex-1 font-medium">{i.title}</span>
                 <Badge tone="violet">Phase {i.phase}</Badge>
                 <Badge tone="slate">Effort {i.effort}</Badge>
@@ -94,10 +93,14 @@ export default function Roadmap() {
           <Card className="p-5">
             <h3 className="mb-2 flex items-center gap-2 font-semibold"><ShieldCheck size={16} className="text-emerald-600" /> Guardrails</h3>
             <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
-              <li>AI drafts and suggests; people approve anything sent to buyers or posted to accounts.</li>
-              <li>Only the fields needed for each task are sent to the model; no identity document images leave Drive without approval.</li>
-              <li>Every AI step is logged in the Automation Monitor with its input reference and output.</li>
-              <li>Provider choice (OpenAI or Claude) stays configurable per scenario.</li>
+              <li>AI drafts only — it never sends, posts or approves on its own.</li>
+              <li>Humans approve every external communication to buyers or suppliers.</li>
+              <li>AI does not independently approve contracts.</li>
+              <li>AI does not independently approve accounting entries.</li>
+              <li>AI does not independently determine AML/KYC compliance — it flags, a person decides.</li>
+              <li>Sensitive documents (IDs, bank details) are not sent to an AI provider unless strictly needed.</li>
+              <li>Every AI action is logged in the Automation Monitor with its input reference and output.</li>
+              <li>The AI provider (OpenAI or Claude) is configurable per Zap.</li>
             </ul>
           </Card>
         </div>

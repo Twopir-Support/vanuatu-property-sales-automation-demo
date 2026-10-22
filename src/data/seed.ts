@@ -2,7 +2,7 @@ import { COMPANY, IDS, USERS } from './ids'
 import type { DemoState, DriveFile, Transaction } from './types'
 import { seedEmails, seedXeroBills } from './bills'
 
-export const STATE_VERSION = 5
+export const STATE_VERSION = 6
 
 /** Today's date at a given time, as an ISO string. Seed data is anchored to "today". */
 export function todayAt(h: number, m: number, dayOffset = 0): string {
@@ -25,10 +25,10 @@ const contractPreview = [
 function seedDrive(): DriveFile[] {
   const o = USERS.sales
   return [
-    { id: 'gd-root', name: 'Pacific Horizon — Sales', type: 'folder', parentId: null, owner: 'Shared drive', modifiedAt: todayAt(9, 12, -40) },
+    { id: 'gd-root', name: 'Pacific Horizon Developments', type: 'folder', parentId: null, owner: 'Shared drive', modifiedAt: todayAt(9, 12, -40) },
     { id: 'gd-hvr', name: COMPANY.development, type: 'folder', parentId: 'gd-root', owner: o, modifiedAt: todayAt(9, 30, -12) },
     { id: 'gd-templates', name: 'Templates', type: 'folder', parentId: 'gd-root', owner: USERS.admin, modifiedAt: todayAt(14, 5, -60) },
-    { id: 'gd-tpl-contract', name: 'Residential Lot Sale Agreement — Template v3', type: 'doc', parentId: 'gd-templates', owner: USERS.admin, modifiedAt: todayAt(14, 5, -60), sizeKb: 84, preview: ['Template with merge fields: {{buyer_name}}, {{lot_id}}, {{sale_price}}, {{settlement_date}}', 'Synthetic demo template.'] },
+    { id: 'gd-tpl-contract', name: 'Residential Lot Sale Agreement v2.1', type: 'doc', parentId: 'gd-templates', owner: USERS.admin, modifiedAt: todayAt(14, 5, -60), sizeKb: 84, preview: ['Template with merge fields: {{buyer_name}}, {{lot_id}}, {{sale_price}}, {{settlement_date}}', 'Synthetic demo template.'] },
     { id: 'gd-tpl-price', name: 'Harbour View — Price list 2026', type: 'sheet', parentId: 'gd-templates', owner: USERS.finance, modifiedAt: todayAt(11, 40, -21), sizeKb: 36 },
     { id: 'gd-lot023', name: 'LOT-023 — Jordan Lee', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(16, 2, -9), label: 'Completed' },
     { id: 'gd-lot024', name: 'LOT-024 — Priya Nair', type: 'folder', parentId: 'gd-hvr', owner: o, modifiedAt: todayAt(10, 18, -3), label: 'Pending approval' },
@@ -53,9 +53,9 @@ export function lotFolderTree(t: Transaction, now: string): DriveFile[] {
     { id: 'gd-025-app', name: '03 Sale application', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
     { id: 'gd-025-ctr', name: '04 Contracts', type: 'folder', parentId: IDS.driveFolder, owner: USERS.integration, modifiedAt: now },
     { id: 'gd-025-fin', name: '05 Finance', type: 'folder', parentId: IDS.driveFolder, owner: USERS.finance, modifiedAt: now },
-    { id: 'gd-f-passport', name: 'LOT-025_Identification_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-id', owner: USERS.integration, modifiedAt: now, sizeKb: 412, label: 'Received', preview: ['IDENTIFICATION DOCUMENT — SYNTHETIC PLACEHOLDER', 'Name: Alex Morgan', 'Document no.: DEMO-000000', 'Verified by: Sarah Williams'] },
-    { id: 'gd-f-address', name: 'LOT-025_ProofOfAddress_AlexMorgan.pdf', type: 'pdf', parentId: 'gd-025-addr', owner: USERS.integration, modifiedAt: now, sizeKb: 228, label: 'Received', preview: ['PROOF OF ADDRESS — SYNTHETIC PLACEHOLDER', 'Utility statement (demo)', 'Address: Example Street, Port Vila'] },
-    { id: 'gd-f-application', name: 'LOT-025_SaleApplication.pdf', type: 'pdf', parentId: 'gd-025-app', owner: USERS.integration, modifiedAt: now, sizeKb: 186, label: 'Received', preview: ['SALE APPLICATION — SYNTHETIC', `Development: ${COMPANY.development}`, 'Lot: LOT-025', 'Offer: VT 12,500,000', 'Applicant: Alex Morgan'] },
+    { id: 'gd-f-passport', name: `Buyer ID — ${t.buyerName}.pdf`, type: 'pdf', parentId: 'gd-025-id', owner: USERS.integration, modifiedAt: now, sizeKb: 412, label: 'Received', preview: ['IDENTIFICATION DOCUMENT — SYNTHETIC PLACEHOLDER', 'Name: Alex Morgan', 'Document no.: DEMO-000000', 'Verified by: Sarah Williams'] },
+    { id: 'gd-f-address', name: 'Proof of Address.pdf', type: 'pdf', parentId: 'gd-025-addr', owner: USERS.integration, modifiedAt: now, sizeKb: 228, label: 'Received', preview: ['PROOF OF ADDRESS — SYNTHETIC PLACEHOLDER', 'Utility statement (demo)', 'Address: Example Street, Port Vila'] },
+    { id: 'gd-f-application', name: 'Sale Application.pdf', type: 'pdf', parentId: 'gd-025-app', owner: USERS.integration, modifiedAt: now, sizeKb: 186, label: 'Received', preview: ['SALE APPLICATION — SYNTHETIC', `Development: ${COMPANY.development}`, 'Lot: LOT-025', 'Offer: VT 12,500,000', 'Applicant: Alex Morgan'] },
     { id: 'gd-f-plan', name: 'HVR_SitePlan_Lot025.png', type: 'image', parentId: 'gd-025-app', owner: USERS.admin, modifiedAt: now, sizeKb: 1640 },
   ]
 }
@@ -123,9 +123,9 @@ export function createSeedState(): DemoState {
       ],
       timeline: [
         { id: 'h1', at: t0(6), type: 'integration', title: 'Contract generation requested', body: 'Zap 2A is waiting for step 6 on Process Street run PS-RUN-0425.', actor: USERS.integration },
-        { id: 'h2', at: t0(5), type: 'integration', title: 'Document requirements checked', body: 'Identification ✓  Proof of address ✓  Sale application ✓  Sale contract — awaiting generation', actor: USERS.integration },
-        { id: 'h3', at: t0(4), type: 'integration', title: 'Lot information synchronized', body: 'Lot ID LOT-025 · Harbour View Residences · Settlement 15 Dec 2026', actor: USERS.integration },
-        { id: 'h4', at: t0(3), type: 'integration', title: 'Deal record created or updated', body: 'Deal uniqueness rule: Lot ID + Buyer ID. 0 existing open deals found → created HS-D-3008250.', actor: USERS.integration },
+        { id: 'h2', at: t0(5), type: 'integration', title: 'Required documents validated', body: 'Identification ✓  Proof of address ✓  Sale application ✓  Sale contract — awaiting generation', actor: USERS.integration },
+        { id: 'h3', at: t0(4), type: 'integration', title: 'Lot data synchronized', body: 'Lot ID LOT-025 · Harbour View Residences · Settlement 15 Dec 2026', actor: USERS.integration },
+        { id: 'h4', at: t0(3), type: 'integration', title: 'Deal created/updated', body: 'Deal uniqueness rule: Lot ID + Buyer ID. 0 existing open deals found → created HS-D-3008250.', actor: USERS.integration },
         { id: 'h5', at: t0(2), type: 'integration', title: 'Buyer record matched', body: 'Matched existing contact HS-C-1002450 on Buyer ID BUY-0142 (email confirmed). No duplicate created.', actor: USERS.integration },
         { id: 'h6', at: todayAt(15, 10, -2), type: 'call', title: 'Call with Alex Morgan', body: 'Discussed settlement timing and deposit terms. Buyer happy to proceed. (Synthetic note)', actor: USERS.sales },
         { id: 'h7', at: todayAt(14, 20, -6), type: 'email', title: 'Enquiry: Harbour View Residences', body: 'Website enquiry for ocean-view lots. (Synthetic email)', actor: 'Alex Morgan' },
@@ -150,18 +150,26 @@ export function createSeedState(): DemoState {
       id: IDS.contract,
       version: 0,
       status: 'Not generated',
-      template: 'Residential Lot Sale Agreement — Template v3',
+      template: 'Residential Lot Sale Agreement v2.1',
       comments: [],
       signature: 'Not sent',
     },
     events: [
       { id: 'ev-4', at: t0(6), scenario: 'Zap 2A · Generate contract → Drive → review', trigger: 'HubSpot: deal stage = Contract Approval', source: 'hubspot', target: 'contracts', action: 'Waiting for Process Street step 6', idempotencyKey: 'contract.queue:TXN-HVR-025', status: 'blocked', durationMs: 120, result: 'Filter: waiting — step 6 “Contract generated” is not checked yet', payload: { transactionId: IDS.transaction, step: 6 } },
       { id: 'ev-3', at: t0(4), scenario: 'Zap 1 · Lot-sale checklist → HubSpot buyer & deal', trigger: 'Process Street: step 5 checked', source: 'process-street', target: 'hubspot', action: 'Formatter · find contact (Buyer ID → email) · create/update · find deal (Lot ID + Buyer ID) · create/update', idempotencyKey: 'hs.upsert:TXN-HVR-025:seed', status: 'success', durationMs: 1840, result: 'Contact matched (HS-C-1002450) on Buyer ID · Deal created (HS-D-3008250) · 0 duplicates', payload: { buyerId: IDS.buyer, lotId: IDS.lot, email: 'alex.morgan@example.com', amount: 12_500_000 } },
+      { id: 'ev-x2', at: todayAt(8, 52), scenario: 'Zap 1 · Lot-sale checklist → HubSpot buyer & deal', trigger: 'Process Street: step 5 checked (LOT-027)', source: 'process-street', target: 'hubspot', action: 'Validate required fields before HubSpot update', idempotencyKey: 'hs.upsert:TXN-HVR-027:9c1e04aa', status: 'failed', durationMs: 210, transaction: 'TXN-HVR-027', attempt: 1, errorClass: 'Validation', errorMessage: 'Missing required field: Settlement Date', result: 'Validation error — Settlement Date is empty on run PS-RUN-0427. Automation paused; not retried until the data is fixed.', payload: { transactionId: 'TXN-HVR-027', lotId: 'LOT-027', buyer: 'Sam Tari', settlement_date: null } },
+      { id: 'ev-x1', at: todayAt(8, 31), scenario: 'Zap 3 · Deal won → Xero draft invoice', trigger: 'HubSpot: deal stage → Closed Won (LOT-024)', source: 'hubspot', target: 'xero', action: 'Find Xero contact · create DRAFT invoice', idempotencyKey: 'xero.invoice:TXN-HVR-024:deposit', status: 'failed', durationMs: 2640, transaction: 'TXN-HVR-024', attempt: 1, errorClass: 'Retryable', errorMessage: 'Customer could not be matched in Xero.', result: 'Xero returned no contact for priya.nair@example.com and contact creation timed out. Retryable — attempt 1 of 3.', payload: { transactionId: 'TXN-HVR-024', dealId: 'HS-D-3008240', contact: 'Priya Nair', email: 'priya.nair@example.com', amount: 1_190_000 } },
     ],
     processedKeys: ['hs.upsert:TXN-HVR-025:seed'],
     settings: { autoSyncOnSave: false, simulateFailure: false, enforceStopTasks: true },
     saleCompleted: false,
     bills: { emails: seedEmails(), xeroBills: seedXeroBills() },
     goLive: {},
+    stepComments: [
+      { id: 'c1', stepId: 4, user: USERS.sales, text: 'All three documents certified at the sales office. Originals sighted.', at: todayAt(9, 47) },
+      { id: 'c2', stepId: 3, user: USERS.director, text: 'Price confirmed against the 2026 list — no discount applied.', at: todayAt(9, 40) },
+      { id: 'c3', stepId: 6, user: USERS.sales, text: 'Buyer has asked for the draft by Friday if possible.', at: todayAt(10, 8) },
+    ],
+    runAttachments: [],
   }
 }

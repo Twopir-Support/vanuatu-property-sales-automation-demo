@@ -71,7 +71,7 @@ export function Card({ children, className, id }: { children: ReactNode; classNa
 export function Modal({ open, onClose, title, children, footer, width = 480 }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; width?: number }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[59] flex items-center justify-center bg-slate-900/40 p-4" onMouseDown={onClose}>
       <div className="w-full rounded-lg bg-white shadow-2xl" style={{ maxWidth: width }} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
           <h2 className="text-base font-semibold">{title}</h2>

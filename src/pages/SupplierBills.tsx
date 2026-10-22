@@ -188,7 +188,7 @@ function EmailDetail({ m }: { m: InboxEmail }) {
             {m.status === 'Duplicate' && (
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-sm text-violet-700"><CopyX size={15} /> Skipped: {x.supplier} {x.invoiceNumber} already exists as a Xero bill. No second bill was created.</p>
-                <Button size="sm" onClick={() => run((s) => createDraftBill(s, m.id, 'Manual re-run (idempotency test)'))}>Re-run (idempotency test)</Button>
+                <Button size="sm" className="dev-only" onClick={() => run((s) => createDraftBill(s, m.id, 'Manual re-run (idempotency test)'))}>Re-run (idempotency test)</Button>
               </div>
             )}
           </div>
@@ -205,7 +205,7 @@ function XeroBills() {
   const rows = tab === 'All' ? bills : bills.filter((b) => b.status === tab)
   const tabs: (XeroBill['status'] | 'All')[] = ['All', 'Draft', 'Awaiting Approval', 'Awaiting Payment', 'Paid']
   return (
-    <XeroChrome active="Purchases" crumbs={[{ label: 'Purchases overview' }, { label: 'Bills to pay' }]} title="Bills to pay" actions={<button className={xPrimary}>New bill</button>}>
+    <XeroChrome active="Purchases" subActive="Bills to pay" crumbs={[{ label: 'Purchases overview' }, { label: 'Bills to pay' }]} title="Bills to pay" actions={<button className={xPrimary}>New bill</button>}>
       <div className="space-y-4 p-6">
         <div className="flex items-start gap-3 rounded border border-[#d9ccf5] bg-[#f6f2ff] p-4 text-sm text-[#3b2479]">
           <Mail size={18} className="mt-0.5" />

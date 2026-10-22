@@ -14,7 +14,7 @@ export function ProductFrame({ product, label, children, className }: { product:
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-1.5 text-[11px] text-slate-500">
         <span className="inline-flex items-center gap-1.5">
           <Info size={12} />
-          {label ?? `Simulated ${product}-style view · original demo component, not the ${product} product · synthetic data`}
+          {label ?? `Simulated ${product}-style view · Original demo component · Synthetic data`}
         </span>
         <CrossRef />
       </div>

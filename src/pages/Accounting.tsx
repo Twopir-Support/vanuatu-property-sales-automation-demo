@@ -4,9 +4,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { IDS, USERS } from '../data/ids'
 import type { InvoiceLine, InvoiceStatus, XeroInvoice } from '../data/types'
-import { cn, date, dateTime, num, uid } from '../lib/format'
+import { cn, date, dateTime, num, time, uid } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
-import { invoiceRules, setInvoiceStatus, updateInvoiceLines } from '../store/engine'
+import { createXeroInvoice, invoiceRules, setInvoiceStatus, updateInvoiceLines } from '../store/engine'
+import { Spinner } from '../components/ui/overlays'
 
 const VAT = 0.15
 
@@ -27,8 +28,9 @@ export function StatusPill({ status }: { status: InvoiceStatus }) {
   return <span className={cn('inline-block rounded px-2 py-0.5 text-xs font-semibold', statusCls[status])}>{status}</span>
 }
 
-export function XeroChrome({ crumbs, title, actions, children, active = 'Sales' }: { crumbs: { label: string; to?: string }[]; title: ReactNode; actions?: ReactNode; children: ReactNode; active?: string }) {
-  const menu = ['Home', 'Sales', 'Purchases', 'Reporting', 'Payroll', 'Accounting', 'Tax', 'Contacts']
+export function XeroChrome({ crumbs, title, actions, children, active = 'Sales', subActive }: { crumbs: { label: string; to?: string }[]; title: ReactNode; actions?: ReactNode; children: ReactNode; active?: string; subActive?: string }) {
+  const menu: [string, string][] = [['Home', '/accounting'], ['Sales', '/accounting'], ['Purchases', '/bills?view=xero'], ['Reporting', '/accounting?view=reports'], ['Accounting', '/accounting'], ['Contacts', '/accounting?view=contacts']]
+  const sub: [string, string][] = [['Sales', '/accounting'], ['Invoices', '/accounting'], ['Contacts', '/accounting?view=contacts'], ['Reports', '/accounting?view=reports'], ['Bills to pay', '/bills?view=xero']]
   return (
     <ProductFrame product="Xero">
       <div className="flex min-h-0 flex-1 flex-col bg-xr-bg text-[#000a1e]" style={{ fontFamily: "Inter, 'Helvetica Neue', Arial, sans-serif" }}>
@@ -39,8 +41,8 @@ export function XeroChrome({ crumbs, title, actions, children, active = 'Sales' 
             <ChevronDown size={14} />
           </span>
           <nav className="hidden items-center lg:flex">
-            {menu.map((m) => (
-              <span key={m} className={cn('rounded px-3 py-1.5', m === active ? 'bg-xr-navdark font-semibold' : 'hover:bg-white/10')}>{m}</span>
+            {menu.map(([m, to]) => (
+              <Link key={m} to={to} className={cn('rounded px-3 py-1.5', m === active ? 'bg-xr-navdark font-semibold' : 'hover:bg-white/10')}>{m}</Link>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-white/85">
@@ -51,6 +53,13 @@ export function XeroChrome({ crumbs, title, actions, children, active = 'Sales' 
             <span className="flex size-7 items-center justify-center rounded-full bg-[#00b0a3] text-[11px] font-semibold">MT</span>
           </div>
         </div>
+        <nav className="flex shrink-0 items-center gap-1 border-b border-[#d6dade] bg-white px-4 text-[13px]" aria-label="Accounting">
+          {sub.map(([m, to]) => {
+            const on = (m === 'Invoices' && active === 'Sales' && subActive !== 'Contacts' && subActive !== 'Reports') || m === subActive
+            return <Link key={m} to={to} className={cn('border-b-2 px-3 py-2.5', on ? 'border-xr-blue font-semibold text-xr-blue' : 'border-transparent text-slate-700 hover:text-xr-blue')}>{m}</Link>
+          })}
+          <span className="ml-auto rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold tracking-wider text-amber-900">SIMULATED XERO TRANSACTION — NOT POSTED TO XERO</span>
+        </nav>
         <div className="shrink-0 border-b border-[#d6dade] bg-white px-6 pt-3 pb-3">
           <div className="mb-1 flex items-center gap-1 text-xs text-xr-blue">
             {crumbs.map((c, i) => (
@@ -78,6 +87,14 @@ export const xSecondary = `${xBtn} border-[#a6aeb7] bg-white text-[#000a1e] hove
 /* ------------------------------------------------------------------ */
 
 export function InvoicesList() {
+  const [params] = useSearchParams()
+  const view = params.get('view')
+  if (view === 'contacts') return <XeroContacts />
+  if (view === 'reports') return <XeroReports />
+  return <InvoiceTable />
+}
+
+function InvoiceTable() {
   const { state } = useDemo()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
@@ -105,19 +122,7 @@ export function InvoicesList() {
       }
     >
       <div className="space-y-4 p-6">
-        {!inv && (
-          <div className="flex items-start gap-3 rounded border border-[#c8d7e6] bg-[#eef5fc] p-4 text-sm">
-            <Lock size={18} className="mt-0.5 text-xr-blue" />
-            <div className="flex-1">
-              <p className="font-semibold">Waiting for the correct sales milestone</p>
-              <p className="text-slate-700">
-                Zap 3 drafts the deposit invoice for {IDS.lot} ({IDS.xeroInvoice}) only when the HubSpot deal is <b>Closed Won</b> and every business rule below passes. Early pipeline changes never touch accounting.
-              </p>
-              <RulesList />
-            </div>
-            <Link to="/workflow?step=7" className={xSecondary}>Go to approval step</Link>
-          </div>
-        )}
+        <Zap3Panel />
         <div className="overflow-hidden rounded border border-[#d6dade] bg-white">
           <div className="flex flex-wrap border-b border-[#d6dade] px-2">
             {tabs.map((t) => (
@@ -129,15 +134,15 @@ export function InvoicesList() {
           </div>
           <div className="flex items-center gap-2 border-b border-[#d6dade] px-4 py-2.5">
             <div className="flex h-8 w-64 items-center gap-2 rounded border border-[#a6aeb7] px-2 text-sm text-slate-500"><Search size={14} /> Search</div>
-            <span className="ml-auto text-xs text-slate-500">{rows.length} items · amounts in VUV</span>
+            <span className="ml-auto text-xs text-slate-500">{rows.length} items · amounts in VUV (Vanuatu vatu)</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-[#f6f7f8] text-left text-xs text-slate-600">
                 <tr>
                   <th className="w-8 px-4 py-2.5"><input type="checkbox" disabled /></th>
-                  {['Number', 'Ref', 'To', 'Date', 'Due date', 'Paid', 'Due', 'Status'].map((h) => (
-                    <th key={h} className={cn('px-3 py-2.5 font-semibold whitespace-nowrap', ['Paid', 'Due'].includes(h) && 'text-right')}>{h}</th>
+                  {['Invoice', 'Contact', 'Reference', 'Date', 'Due', 'Amount', 'Status'].map((h) => (
+                    <th key={h} className={cn('px-3 py-2.5 font-semibold whitespace-nowrap', h === 'Amount' && 'text-right')}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -146,12 +151,11 @@ export function InvoicesList() {
                   <tr key={r.number} onClick={() => r.live && navigate('/accounting/invoice')} className={cn('border-t border-[#e6e9ec]', r.live ? 'cursor-pointer bg-[#fffbe6] hover:bg-[#fff6cc]' : 'hover:bg-[#f6f7f8]')}>
                     <td className="px-4 py-2.5"><input type="checkbox" disabled /></td>
                     <td className="px-3 py-2.5 font-medium text-xr-blue">{r.number}</td>
-                    <td className="px-3 py-2.5">{r.reference}</td>
                     <td className="px-3 py-2.5">{r.to}</td>
+                    <td className="px-3 py-2.5">{r.reference}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{date(r.date)}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap">{date(r.dueDate)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{num(r.status === 'Paid' ? r.total : 0)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{num(r.status === 'Paid' ? 0 : r.total)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{num(r.total)}</td>
                     <td className="px-3 py-2.5"><StatusPill status={r.status} /></td>
                   </tr>
                 ))}
@@ -175,12 +179,12 @@ export function InvoiceEditor() {
   if (!inv) {
     return (
       <XeroChrome crumbs={[{ label: 'Sales overview' }, { label: 'Invoices', to: '/accounting' }]} title={`Invoice ${IDS.xeroInvoice}`}>
-        <div className="flex flex-col items-center px-6 py-20 text-center">
-          <Lock size={40} className="text-slate-400" />
-          <p className="mt-3 text-lg font-semibold">Not created yet</p>
-          <p className="max-w-md text-sm text-slate-600">Zap 3 creates this draft only when the HubSpot deal is won and every rule passes:</p>
-          <div className="mt-3 w-full max-w-md text-left"><RulesList /></div>
-          <Link to="/workflow?step=7" className={cn(xPrimary, 'mt-4')}>Open step 7 — Contract approved</Link>
+        <div className="space-y-4 p-6">
+          <div className="flex items-center gap-3 rounded border border-[#d6dade] bg-white px-4 py-6">
+            <Lock size={28} className="text-slate-400" />
+            <div><p className="font-semibold">{IDS.xeroInvoice} has not been created</p><p className="text-sm text-slate-600">It only exists once Zap 3’s rules pass. Nothing is posted to Xero by this demo.</p></div>
+          </div>
+          <Zap3Panel />
         </div>
       </XeroChrome>
     )
@@ -229,7 +233,7 @@ export function InvoiceEditor() {
         <div className="rounded border border-[#d6dade] bg-white">
           <div className="grid gap-4 border-b border-[#e6e9ec] p-5 sm:grid-cols-2 lg:grid-cols-6">
             <XField label="To" className="lg:col-span-2"><div className="rounded border border-[#a6aeb7] px-2.5 py-1.5 text-sm"><span className="font-semibold">{inv.contactName}</span><span className="block text-xs text-slate-500">{state.transaction.email} · Account {state.transaction.buyerId}</span></div></XField>
-            <XField label="Issue date"><Read v={date(inv.date)} /></XField>
+            <XField label="Invoice date"><Read v={date(inv.date)} /></XField>
             <XField label="Due date"><Read v={date(inv.dueDate)} /></XField>
             <XField label="Invoice number"><Read v={inv.number} /></XField>
             <XField label="Reference"><Read v={inv.reference} /></XField>
@@ -244,10 +248,10 @@ export function InvoiceEditor() {
                 <tr>
                   <th className="w-24 px-3 py-2 font-semibold">Item</th>
                   <th className="px-3 py-2 font-semibold">Description</th>
-                  <th className="w-16 px-3 py-2 text-right font-semibold">Qty.</th>
-                  <th className="w-32 px-3 py-2 text-right font-semibold">Price</th>
+                  <th className="w-20 px-3 py-2 text-right font-semibold">Quantity</th>
+                  <th className="w-32 px-3 py-2 text-right font-semibold">Unit price</th>
                   <th className="w-48 px-3 py-2 font-semibold">Account</th>
-                  <th className="w-32 px-3 py-2 font-semibold">Tax rate</th>
+                  <th className="w-32 px-3 py-2 font-semibold">Tax</th>
                   <th className="w-28 px-3 py-2 text-right font-semibold">Tax amount</th>
                   <th className="w-32 px-3 py-2 text-right font-semibold">Amount VUV</th>
                   <th className="w-8" />
@@ -291,7 +295,7 @@ export function InvoiceEditor() {
             )}
             <dl className="w-full max-w-xs space-y-1.5 text-sm">
               <div className="flex justify-between"><dt>Subtotal</dt><dd className="tabular-nums">{num(totals.subtotal)}</dd></div>
-              <div className="flex justify-between"><dt>Total VAT 15%</dt><dd className="tabular-nums">{num(totals.tax)}</dd></div>
+              <div className="flex justify-between"><dt>Tax (VAT 15%)</dt><dd className="tabular-nums">{num(totals.tax)}</dd></div>
               <div className="flex justify-between border-t-2 border-[#000a1e] pt-2 text-lg font-bold"><dt>Total</dt><dd className="tabular-nums">{num(totals.total)}</dd></div>
               {inv.status === 'Paid' && <div className="flex justify-between text-sm text-xr-green"><dt>Less payment</dt><dd className="tabular-nums">-{num(totals.total)}</dd></div>}
               <div className="flex justify-between text-sm font-semibold"><dt>Amount due</dt><dd className="tabular-nums">{num(inv.status === 'Paid' ? 0 : totals.total)}</dd></div>
@@ -350,17 +354,102 @@ function Read({ v }: { v: string }) {
   return <div className="rounded border border-[#a6aeb7] bg-[#f6f7f8] px-2.5 py-1.5 text-sm">{v}</div>
 }
 
-function RulesList() {
-  const { state } = useDemo()
+/** Zap 3's filter, shown where finance would look: the invoice only exists once every rule passes. */
+function Zap3Panel() {
+  const { state, runDelayed, busy } = useDemo()
+  const [confirm, setConfirm] = useState(false)
+  const rules = invoiceRules(state)
+  const inv = state.xero.invoice
+  const last = state.events.find((e) => e.scenario.startsWith('Zap 3') && (!e.transaction || e.transaction === IDS.transaction))
+  const pass = rules.every((r) => r.pass)
   return (
-    <ul className="mt-2 space-y-1 text-xs">
-      {invoiceRules(state).map((r) => (
-        <li key={r.label} className="flex items-center gap-2">
-          {r.pass ? <Check size={14} className="text-xr-green" /> : <CircleX size={14} className="text-rose-500" />}
-          <span className={r.pass ? 'text-slate-700' : 'font-medium text-slate-900'}>{r.label}</span>
-          <span className="text-slate-500">· {r.detail}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="overflow-hidden rounded border border-[#d6dade] bg-white">
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#e6e9ec] px-4 py-3">
+        <span className="flex size-7 items-center justify-center rounded bg-[#ff4f00] text-white"><Zap size={14} /></span>
+        <div className="flex-1">
+          <p className="text-sm font-semibold">Zap 3 validation · {IDS.lot} → {IDS.xeroInvoice}</p>
+          <p className="text-xs text-slate-600">{inv ? `Draft ${inv.number} exists — Zap 3 will not create another.` : 'Runs when the HubSpot deal is Closed Won. Every rule must pass before anything is created in Xero.'}</p>
+        </div>
+        {busy === 'zap3' ? (
+          <span className="inline-flex items-center gap-1.5 text-sm text-xr-blue"><Spinner size={13} /> Validating…</span>
+        ) : inv ? (
+          <Link to="/accounting/invoice" className={xSecondary}>Open {inv.number}</Link>
+        ) : (
+          <button className={xPrimary} onClick={() => setConfirm(true)}>CREATE DRAFT INVOICE</button>
+        )}
+      </div>
+      <ul className="grid gap-px bg-[#e6e9ec] text-[13px] sm:grid-cols-2 xl:grid-cols-4">
+        {rules.map((r) => (
+          <li key={r.label} className="flex items-start gap-2 bg-white px-4 py-2">
+            {r.pass ? <Check size={15} strokeWidth={3} className="mt-0.5 shrink-0 text-xr-green" /> : <CircleX size={15} className="mt-0.5 shrink-0 text-rose-500" />}
+            <span className="min-w-0">
+              <span className={cn('block', r.pass ? 'text-slate-700' : 'font-semibold text-slate-900')}>{r.label}</span>
+              <span className="block truncate text-xs text-slate-500">{r.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {last && (
+        <p className={cn('border-t border-[#e6e9ec] px-4 py-2 text-xs', last.status === 'success' ? 'bg-[#f0faf3] text-[#0b6b2f]' : last.status === 'blocked' ? 'bg-amber-50 text-amber-900' : last.status === 'failed' ? 'bg-rose-50 text-rose-800' : 'bg-slate-50 text-slate-700')}>
+          Last run {time(last.at)} · {last.status === 'blocked' ? 'Stopped by filter' : last.status === 'duplicate' ? 'Skipped (already created)' : last.status === 'failed' ? 'Failed' : 'Success'} — {last.result}
+        </p>
+      )}
+      {confirm && (
+        <div className="fixed inset-0 top-7 z-[60] flex items-center justify-center bg-[#000a1e]/40 p-4" onMouseDown={() => setConfirm(false)}>
+          <div className="w-full max-w-md rounded bg-white shadow-2xl" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
+            <p className="border-b border-[#e6e9ec] px-5 py-3 font-semibold">Create draft invoice in Xero?</p>
+            <div className="px-5 py-4 text-sm text-slate-700">
+              {pass ? 'All rules pass. Zap 3 will find or create the Xero contact, create a DRAFT invoice in VUV and write the invoice number back to the HubSpot deal.' : `${rules.filter((r) => !r.pass).length} rule(s) are not met. Zap 3 will run, but its filter will stop before anything is created in Xero.`}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-[#e6e9ec] bg-[#f6f7f8] px-5 py-3">
+              <button className={xSecondary} onClick={() => setConfirm(false)}>Cancel</button>
+              <button className={xPrimary} onClick={() => { setConfirm(false); runDelayed('zap3', (s) => createXeroInvoice(s, 'Xero screen — CREATE DRAFT INVOICE'), 900) }}>Run Zap 3</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function XeroContacts() {
+  const { state } = useDemo()
+  const rows = [
+    ...state.xero.contacts.map((c) => ({ name: c.name, email: c.email, acct: c.accountNumber, id: c.id, src: 'Created by Zap 3' })),
+    { name: 'Priya Nair', email: 'priya.nair@example.com', acct: 'BUY-0131', id: 'XC-PRIY-0131', src: 'Existing' },
+    { name: 'Jordan Lee', email: 'jordan.lee@example.com', acct: 'BUY-0119', id: 'XC-JORD-0119', src: 'Existing' },
+    { name: 'Kiri Holdings Ltd (demo)', email: 'accounts@kiri.example', acct: 'BUY-0101', id: 'XC-KIRI-0101', src: 'Existing' },
+  ]
+  return (
+    <XeroChrome crumbs={[{ label: 'Contacts' }]} title="Contacts" subActive="Contacts" active="Contacts">
+      <div className="p-6">
+        <div className="overflow-hidden rounded border border-[#d6dade] bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-[#f6f7f8] text-left text-xs text-slate-600"><tr>{['Contact', 'Email', 'Account number', 'ID', 'Source'].map((h) => <th key={h} className="px-4 py-2.5 font-semibold">{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-[#e6e9ec]">
+                  <td className="px-4 py-2.5 font-medium text-xr-blue">{r.name}</td><td className="px-4 py-2.5">{r.email}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs">{r.acct}</td><td className="px-4 py-2.5 font-mono text-xs">{r.id}</td><td className="px-4 py-2.5 text-xs text-slate-600">{r.src}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {state.xero.contacts.length === 0 && <p className="border-t border-[#e6e9ec] px-4 py-2.5 text-xs text-slate-500">Alex Morgan is not in Xero yet — Zap 3 finds or creates the contact (matched on email) when the deal is won.</p>}
+        </div>
+      </div>
+    </XeroChrome>
+  )
+}
+
+function XeroReports() {
+  return (
+    <XeroChrome crumbs={[{ label: 'Reporting' }]} title="Reports" subActive="Reports" active="Reporting">
+      <div className="flex flex-col items-center px-6 py-20 text-center">
+        <p className="text-lg font-semibold">Reports are outside this demo</p>
+        <p className="max-w-md text-sm text-slate-600">The integration only creates draft invoices and draft bills; finance reporting stays in Xero as today.</p>
+        <Link to="/accounting" className={cn(xSecondary, 'mt-4')}>Back to invoices</Link>
+      </div>
+    </XeroChrome>
   )
 }

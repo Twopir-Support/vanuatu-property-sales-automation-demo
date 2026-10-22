@@ -11,6 +11,7 @@ import {
   createHubSpotContact,
   createXeroInvoice,
   generateContract,
+  markEventFixed,
   processInbox,
   replayEvent,
   setDealStage,
@@ -187,6 +188,32 @@ export const TEST_CASES: TestCase[] = [
       s = createDraftBill(s, 'em-5', 'UAT review', USERS.finance).state
       const after = s.bills.emails.find((m) => m.id === 'em-5')!
       return { pass: held === 'Needs review' && after.status === 'Draft bill created' && s.bills.xeroBills[0].status === 'Draft', actual: `${held} → ${after.status}` }
+    },
+  },
+  {
+    id: 'UAT-16', area: 'Resilience', name: 'Validation error is paused until the data is fixed',
+    expected: 'Retry refused while Settlement Date is missing; succeeds after the fix',
+    run: () => {
+      let s = sandbox()
+      const ev = s.events.find((e) => e.errorClass === 'Validation')!
+      const before = s.events.length
+      s = replayEvent(s, ev.id).state
+      const refused = s.events.length === before
+      s = markEventFixed(s, ev.id).state
+      s = replayEvent(s, ev.id).state
+      return { pass: refused && s.events[0].status === 'success' && s.events[0].idempotencyKey === ev.idempotencyKey, actual: `${refused ? 'refused while missing' : 'retried early!'} → after fix ${s.events[0].status}` }
+    },
+  },
+  {
+    id: 'UAT-17', area: 'Resilience', name: 'Retryable Xero failure (LOT-024) succeeds on retry',
+    expected: 'Attempt 2 succeeds; a further replay is skipped',
+    run: () => {
+      let s = sandbox()
+      const ev = s.events.find((e) => e.errorClass === 'Retryable')!
+      s = replayEvent(s, ev.id).state
+      const ok = s.events[0].status === 'success' && s.events[0].attempt === 2
+      s = replayEvent(s, ev.id).state
+      return { pass: ok && s.events[0].status === 'duplicate', actual: `attempt ${s.events[1].attempt} ${s.events[1].status} → replay ${s.events[0].status}` }
     },
   },
 ]
