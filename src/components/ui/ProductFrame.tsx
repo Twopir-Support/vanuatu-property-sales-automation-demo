@@ -1,6 +1,5 @@
 import { Info, Link2 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { IDS } from '../../data/ids'
 import { cn } from '../../lib/format'
 
@@ -23,13 +22,13 @@ export function ProductFrame({ product, label, children, className }: { product:
   )
 }
 
-const refs: { label: string; id: string; to: string }[] = [
-  { label: 'Txn', id: IDS.transaction, to: '/' },
-  { label: 'Run', id: IDS.processStreetRun, to: '/workflow' },
-  { label: 'Deal', id: IDS.hubspotDeal, to: '/crm/deal' },
-  { label: 'Contract', id: IDS.contract, to: '/contracts' },
-  { label: 'Folder', id: IDS.driveFolder, to: `/documents/${IDS.driveFolder}` },
-  { label: 'Invoice', id: IDS.xeroInvoice, to: '/accounting/invoice' },
+const refs: { label: string; id: string }[] = [
+  { label: 'Txn', id: IDS.transaction },
+  { label: 'Run', id: IDS.processStreetRun },
+  { label: 'Deal', id: IDS.hubspotDeal },
+  { label: 'Contract', id: IDS.contract },
+  { label: 'Folder', id: IDS.driveFolder },
+  { label: 'Invoice', id: IDS.xeroInvoice },
 ]
 
 export function CrossRef() {
@@ -38,9 +37,7 @@ export function CrossRef() {
       <Link2 size={12} />
       {refs.map((r, i) => (
         <span key={r.id} className="inline-flex items-center">
-          <Link to={r.to} className="rounded px-1 font-mono text-slate-600 hover:bg-slate-100 hover:text-brand-700" title={`${r.label}: ${r.id}`}>
-            {r.id}
-          </Link>
+          <span className="rounded px-1 font-mono text-slate-600" title={`${r.label}: ${r.id}`}>{r.id}</span>
           {i < refs.length - 1 && <span className="text-slate-300">·</span>}
         </span>
       ))}

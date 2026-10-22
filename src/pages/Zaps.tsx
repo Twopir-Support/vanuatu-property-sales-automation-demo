@@ -1,7 +1,7 @@
 import { Check, CheckCircle2, CircleDashed, History, Play, Power, XCircle, Zap as ZapIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Spinner } from '../components/ui/overlays'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { USERS } from '../data/ids'
 import type { DemoState } from '../data/types'
@@ -17,9 +17,19 @@ const RUNNERS: Record<string, (s: DemoState) => Result> = {
   z2b: (s) => (s.steps[6].status === 'pending' ? toggleStep(s, 7, USERS.director) : approveContract(s, USERS.director, 'Zapier: Run now')),
   z2c: (s) => signContract(s, 'Zapier: Run now'),
   z3: (s) => createXeroInvoice(s, 'Zapier: Run now'),
+  flow: (s) => nextStage(s).run(s),
 }
 
-function AppBadge({ app, size = 32 }: { app: ZapStep['app']; size?: number }) {
+/** For the end-to-end overview: the next Zap that has not yet run for LOT-025. */
+export function nextStage(s: DemoState): { label: string; run: (s: DemoState) => Result } {
+  if (s.hubspot.lastSyncedHash === '') return { label: 'Run Zap 1 (Process Street → HubSpot)', run: RUNNERS.z1 }
+  if (s.contract.status === 'Not generated') return { label: 'Run Zap 2A (generate contract → Drive)', run: RUNNERS.z2a }
+  if (s.contract.status !== 'Approved') return { label: 'Approve → run Zap 2B (send for signature)', run: RUNNERS.z2b }
+  if (s.contract.signature !== 'Signed') return { label: 'Buyer signs → run Zap 2C + Zap 3', run: RUNNERS.z2c }
+  return { label: 'All stages complete', run: (st) => ({ state: st, notice: { kind: 'info', title: 'Every stage has run for LOT-025', message: 'Use Reset in the banner to start again.' } }) }
+}
+
+export function AppBadge({ app, size = 32 }: { app: ZapStep['app']; size?: number }) {
   const st = APP_STYLE[app]
   return (
     <span className="flex shrink-0 items-center justify-center rounded-md text-[11px] font-bold" style={{ width: size, height: size, background: st.bg, color: st.fg }} title={app}>
@@ -89,7 +99,7 @@ export default function Zaps() {
               </div>
               {RUNNERS[zap.id] && (
                 <button onClick={() => runDelayed('zaprun', RUNNERS[zap.id], 900)} disabled={busy === 'zaprun'} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#ff4f00] px-3 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60">
-                  {busy === 'zaprun' ? <><Spinner size={12} /> Running…</> : <><Play size={13} /> Run on LOT-025</>}
+                  {busy === 'zaprun' ? <><Spinner size={12} /> Running…</> : <><Play size={13} /> {zap.id === 'flow' ? nextStage(state).label : 'Run on LOT-025'}</>}
                 </button>
               )}
             </div>
@@ -288,17 +298,17 @@ function RunsTable({ zap }: { zap: ZapDef }) {
 }
 
 /** Zapier-style app navigation (original component, no vendor logo). */
-function ZapierAppNav() {
-  const items: [string, string?][] = [['Zaps'], ['Tables'], ['Interfaces'], ['Chatbots', 'Beta'], ['Canvas', 'Beta'], ['Agents', 'Beta'], ['Apps'], ['Zap History'], ['More']]
+export function ZapierAppNav({ active = 'Zaps' }: { active?: 'Zaps' | 'Zap History' }) {
+  const items: [string, string?, string?][] = [['Zaps', undefined, '/'], ['Tables'], ['Interfaces'], ['Chatbots', 'Beta'], ['Canvas', 'Beta'], ['Agents', 'Beta'], ['Apps'], ['Zap History', undefined, '/history'], ['More']]
   return (
     <nav className="hidden w-44 shrink-0 flex-col border-r border-[#e6e3dc] bg-white px-2 py-3 text-[13px] lg:flex" aria-label="Zapier">
       <div className="mb-3 flex items-center gap-1.5 px-2"><span className="flex size-6 items-center justify-center rounded bg-[#ff4f00] text-white"><ZapIcon size={13} /></span><span className="font-bold tracking-tight">Zapier</span></div>
       <button className="mb-3 h-9 rounded-full bg-[#ff4f00] text-sm font-semibold text-white hover:brightness-110">+ Create</button>
-      {items.map(([label, tag]) => (
-        <span key={label} className={cn('flex items-center gap-2 rounded-md px-2.5 py-1.5', label === 'Zaps' ? 'bg-[#fff1eb] font-semibold text-[#2d2e2e]' : 'text-slate-600 hover:bg-slate-50')}>
-          {label}{tag && <span className="ml-auto rounded bg-slate-100 px-1 text-[10px] text-slate-500">{tag}</span>}
-        </span>
-      ))}
+      {items.map(([label, tag, to]) => {
+        const cls = cn('flex items-center gap-2 rounded-md px-2.5 py-1.5', label === active ? 'bg-[#fff1eb] font-semibold text-[#2d2e2e]' : 'text-slate-600 hover:bg-slate-50', !to && 'cursor-default')
+        const body = <>{label}{tag && <span className="ml-auto rounded bg-slate-100 px-1 text-[10px] text-slate-500">{tag}</span>}</>
+        return to ? <Link key={label} to={to} className={cls}>{body}</Link> : <span key={label} className={cls}>{body}</span>
+      })}
     </nav>
   )
 }

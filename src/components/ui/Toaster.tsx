@@ -6,9 +6,9 @@ const icons = { success: CheckCircle2, info: Info, warning: AlertTriangle, error
 const colors = { success: 'text-emerald-600', info: 'text-sky-600', warning: 'text-amber-600', error: 'text-rose-600' }
 
 export function Toaster() {
-  const { toasts, dismiss, guideOpen } = useDemo()
+  const { toasts, dismiss } = useDemo()
   return (
-    <div className={`pointer-events-none fixed right-4 ${guideOpen ? 'bottom-28' : 'bottom-4'} z-[60] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2`} aria-live="polite">
+    <div className="pointer-events-none fixed right-4 bottom-4 z-[60] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite">
       {toasts.map((t) => {
         const Icon = icons[t.kind]
         return (

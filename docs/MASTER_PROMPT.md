@@ -1,3 +1,5 @@
+> **Note (branch `claude/zapier-integration-preview`):** this is the original full-demo brief, kept for reference. This branch contains only the Zapier side (Zaps editor and Zap history); see README.md.
+
 # MASTER PROMPT — PROPERTY SALES AUTOMATION DEMO (UPDATED)
 
 Use this prompt to rebuild, extend or hand over the interactive demo for the Vanuatu property-development client. It brings together the original brief, the client's job post, the three-flow design and every decision made while building the demo.
