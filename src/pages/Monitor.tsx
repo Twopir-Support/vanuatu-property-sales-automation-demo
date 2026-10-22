@@ -1,13 +1,13 @@
-import { AlertTriangle, ArrowRight, CircleCheck, Copy, PauseCircle, RotateCcw, Search, UserPlus, Wrench } from 'lucide-react'
+import { AlertTriangle, CircleCheck, Copy, PauseCircle, RotateCcw, Search, UserPlus, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Drawer, Spinner } from '../components/ui/overlays'
+import { ActionMenu, Drawer, Spinner } from '../components/ui/overlays'
 import { USERS } from '../data/ids'
 import type { AutomationEvent } from '../data/types'
 import { cn, dateTime, time } from '../lib/format'
-import { SYSTEMS, SystemIcon } from '../lib/systems'
+import { SYSTEMS } from '../lib/systems'
 import { useDemo } from '../store/DemoStore'
-import { assignEvent, markEventFixed, replayEvent, ZAP } from '../store/engine'
+import { assignEvent, markEventFixed, replayEvent } from '../store/engine'
 
 type View = 'SUCCESS' | 'FAILED' | 'VALIDATION ERROR' | 'SKIPPED' | 'STOPPED BY FILTER'
 
@@ -20,130 +20,135 @@ function viewStatus(e: AutomationEvent, processed: string[]): { label: View | 'R
   return { label: 'FAILED', cls: 'bg-rose-50 text-rose-700 ring-rose-600/25' }
 }
 
-const evtId = (e: AutomationEvent) => `EVT-${e.id.replace(/^ev-?/, '').replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase()}`
 const zapLabel = (e: AutomationEvent) => e.scenario.split(' · ')[0]
 
-const ZAP_LIST = [ZAP.z1, ZAP.z2a, ZAP.z2b, ZAP.z2c, ZAP.z3, ZAP.z4, ZAP.z5, ZAP.bills]
+
+const SYS_LABEL: Partial<Record<string, string>> = { contracts: 'Contract Generator', automation: 'Zapier', inbox: 'Shared inbox' }
+const sysName = (id: AutomationEvent['source']) => SYS_LABEL[id] ?? SYSTEMS[id].name
+
+type Pill = 'Success' | 'Failed' | 'Pending' | 'Filtered' | 'Skipped' | 'Resolved'
+function pill(e: AutomationEvent, processed: string[]): Pill {
+  const v = viewStatus(e, processed).label
+  return v === 'SUCCESS' ? 'Success' : v === 'SKIPPED' ? 'Skipped' : v === 'STOPPED BY FILTER' ? 'Filtered' : v === 'RESOLVED' ? 'Resolved' : v === 'VALIDATION ERROR' ? 'Pending' : 'Failed'
+}
+const PILL_CLS: Record<Pill, string> = {
+  Success: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  Failed: 'bg-rose-50 text-rose-700 ring-rose-600/25',
+  Pending: 'bg-amber-50 text-amber-800 ring-amber-600/25',
+  Filtered: 'bg-slate-100 text-slate-600 ring-slate-400/30',
+  Skipped: 'bg-violet-50 text-violet-700 ring-violet-600/20',
+  Resolved: 'bg-slate-100 text-slate-500 ring-slate-400/30',
+}
+const message = (e: AutomationEvent) => e.errorMessage ?? e.result.split(' · ')[0].replace(/^Filter: stopped — /, 'Stopped: ')
 
 export default function Monitor() {
-  const { state } = useDemo()
-  const [filter, setFilter] = useState<'ALL' | View>('ALL')
-  const [txn, setTxn] = useState('all')
+  const { state, runDelayed, busy, run } = useDemo()
+  const [filter, setFilter] = useState<'All' | 'Successful' | 'Failed' | 'Pending' | 'Other'>('All')
   const [q, setQ] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [refreshedAt, setRefreshedAt] = useState(() => new Date().toISOString())
+  const [refreshing, setRefreshing] = useState(false)
   const processed = state.processedKeys
-  const txns = [...new Set(state.events.map((e) => e.transaction ?? 'TXN-HVR-025'))]
+  const ids = eventIds(state.events)
   const rows = state.events.filter((e) => {
-    const v = viewStatus(e, processed).label
-    if (filter !== 'ALL' && v !== filter) return false
-    if (txn !== 'all' && (e.transaction ?? 'TXN-HVR-025') !== txn) return false
-    if (q && !`${evtId(e)} ${e.scenario} ${e.idempotencyKey} ${e.result}`.toLowerCase().includes(q.toLowerCase())) return false
+    const p = pill(e, processed)
+    if (filter === 'Successful' && p !== 'Success') return false
+    if (filter === 'Failed' && p !== 'Failed') return false
+    if (filter === 'Pending' && p !== 'Pending') return false
+    if (filter === 'Other' && !['Filtered', 'Skipped', 'Resolved'].includes(p)) return false
+    if (q && !`${ids[e.id]} ${e.scenario} ${e.transaction} ${e.result}`.toLowerCase().includes(q.toLowerCase())) return false
     return true
   })
-  const open = state.events.find((e) => e.id === openId)
-  const today = state.events.filter((e) => new Date(e.at).toDateString() === new Date().toDateString())
-  const openFailures = state.events.filter((e) => e.status === 'failed' && !processed.includes(e.idempotencyKey))
-  const ok = today.filter((e) => e.status === 'success').length
-  const counted = today.filter((e) => e.status === 'success' || e.status === 'failed').length
-  const kpis: [string, string, string?][] = [
-    ['Runs today', String(today.length)],
-    ['Success rate', counted ? `${Math.round((ok / counted) * 100)}%` : '—'],
-    ['Open failures', String(openFailures.filter((e) => e.errorClass !== 'Validation').length), openFailures.some((e) => e.errorClass !== 'Validation') ? 'text-rose-600' : undefined],
-    ['Validation errors', String(openFailures.filter((e) => e.errorClass === 'Validation').length), openFailures.some((e) => e.errorClass === 'Validation') ? 'text-orange-700' : undefined],
-    ['Duplicates skipped', String(state.events.filter((e) => e.status === 'duplicate').length)],
-    ['Avg duration', today.length ? `${(today.reduce((a, e) => a + e.durationMs, 0) / today.length / 1000).toFixed(2)} s` : '—'],
+  const count = (p: Pill[]) => state.events.filter((e) => p.includes(pill(e, processed))).length
+  const tabs: [typeof filter, string, number][] = [
+    ['All', 'All Events', state.events.length], ['Successful', 'Successful', count(['Success'])], ['Failed', 'Failed', count(['Failed'])], ['Pending', 'Pending', count(['Pending'])], ['Other', 'Filtered / skipped', count(['Filtered', 'Skipped', 'Resolved'])],
   ]
-  const chips: ('ALL' | View)[] = ['ALL', 'SUCCESS', 'FAILED', 'VALIDATION ERROR', 'STOPPED BY FILTER', 'SKIPPED']
+  const open = state.events.find((e) => e.id === openId)
+  const refresh = () => { setRefreshing(true); window.setTimeout(() => { setRefreshing(false); setRefreshedAt(new Date().toISOString()) }, 600) }
 
   return (
     <div className="mx-auto max-w-[1440px] p-5">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Automation Monitor</h1>
-          <p className="text-sm text-slate-500">Every Zap run across all transactions. Nothing fails silently — failures wait here with a classification and an owner.</p>
+          <h1 className="text-xl font-semibold tracking-tight">Automation Monitor — Success &amp; Error Handling</h1>
+          <p className="text-sm text-slate-500">Every Zap run across all transactions. Failures wait here with a classification and an owner — nothing is lost silently.</p>
         </div>
         <Link to="/zaps" className="text-sm font-medium text-brand-700 hover:underline">Open Zaps →</Link>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-white sm:grid-cols-3 xl:grid-cols-6">
-        {kpis.map(([k, v, cls]) => (
-          <div key={k} className="border-r border-b border-slate-100 px-4 py-3 last:border-r-0">
-            <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">{k}</p>
-            <p className={cn('text-xl font-semibold tabular-nums', cls)}>{v}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2.5">
-          <div className="flex flex-wrap gap-1">
-            {chips.map((c) => (
-              <button key={c} onClick={() => setFilter(c)} className={cn('rounded px-2 py-1 text-[11px] font-semibold tracking-wide', filter === c ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>{c}</button>
-            ))}
-          </div>
-          <select value={txn} onChange={(e) => setTxn(e.target.value)} className="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs" aria-label="Transaction">
-            <option value="all">All transactions</option>
-            {txns.map((t) => <option key={t}>{t}</option>)}
-          </select>
-          <div className="flex h-7 items-center gap-1.5 rounded-md border border-slate-300 px-2 text-xs">
-            <Search size={12} className="text-slate-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Event ID, key, result" className="w-40 outline-none" />
+          {tabs.map(([k, label, n]) => (
+            <button key={k} onClick={() => setFilter(k)} className={cn('rounded-md border px-2.5 py-1 text-xs font-medium', filter === k ? (k === 'Failed' ? 'border-rose-300 bg-rose-50 text-rose-700' : k === 'Pending' ? 'border-amber-300 bg-amber-50 text-amber-800' : k === 'Successful' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-blue-300 bg-blue-50 text-blue-700') : 'border-slate-200 text-slate-600 hover:bg-slate-50')}>
+              {label} ({n})
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex h-7 items-center gap-1.5 rounded-md border border-slate-300 px-2 text-xs">
+              <Search size={12} className="text-slate-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search events" className="w-32 outline-none" />
+            </div>
+            <button onClick={refresh} className="inline-flex h-7 items-center gap-1.5 rounded-md border border-blue-300 px-2.5 text-xs font-medium text-blue-700 hover:bg-blue-50">{refreshing ? <Spinner size={11} /> : <RotateCcw size={12} />} Refresh</button>
+            <span className="text-xs text-slate-500">Last updated: {dateTime(refreshedAt)}</span>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
-            <thead className="bg-slate-50 text-left text-[11px] tracking-wide text-slate-500 uppercase">
-              <tr>{['Event ID', 'Zap', 'Source → Destination', 'Transaction', 'Status', 'Duration', 'Attempts', 'Timestamp'].map((h) => <th key={h} className="px-3 py-2 font-semibold whitespace-nowrap">{h}</th>)}</tr>
+            <thead className="bg-slate-50 text-left text-xs text-slate-600">
+              <tr>{['Event ID', 'Workflow', 'Source', 'Destination', 'Transaction', 'Time', 'Status', 'Message', 'Actions'].map((h) => <th key={h} className="px-3 py-2 font-semibold whitespace-nowrap">{h}</th>)}</tr>
             </thead>
             <tbody>
               {rows.map((e) => {
-                const v = viewStatus(e, processed)
+                const p = pill(e, processed)
+                const retrying = busy === `retry-${e.id}`
+                const bills = e.scenario.includes('bills')
                 return (
                   <tr key={e.id} onClick={() => setOpenId(e.id)} className={cn('cursor-pointer border-t border-slate-100 hover:bg-slate-50', openId === e.id && 'bg-brand-50')}>
-                    <td className="px-3 py-2 font-mono text-xs whitespace-nowrap text-slate-600">{evtId(e)}</td>
-                    <td className="px-3 py-2"><span className="font-medium whitespace-nowrap">{zapLabel(e)}</span><span className="block max-w-[260px] truncate text-[11px] text-slate-500">{e.scenario.split(' · ')[1]}</span></td>
-                    <td className="px-3 py-2 whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><SystemIcon system={e.source} size={10} />{SYSTEMS[e.source].name}<ArrowRight size={11} className="text-slate-400" /><SystemIcon system={e.target} size={10} />{SYSTEMS[e.target].name}</span></td>
+                    <td className="px-3 py-2 font-mono text-xs whitespace-nowrap text-slate-600">{ids[e.id]}</td>
+                    <td className="px-3 py-2 whitespace-nowrap" title={e.scenario}>{bills ? 'Supplier Bills' : 'Lot Sale'} <span className="text-[11px] text-slate-400">· {zapLabel(e)}</span></td>
+                    <td className="px-3 py-2 whitespace-nowrap">{sysName(e.source)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{e.errorClass === 'Validation' ? 'Validation' : sysName(e.target)}</td>
                     <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">{e.transaction ?? 'TXN-HVR-025'}</td>
-                    <td className="px-3 py-2"><span className={cn('inline-block rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide whitespace-nowrap ring-1 ring-inset', v.cls)}>{v.label}</span></td>
-                    <td className="px-3 py-2 text-xs tabular-nums text-slate-600">{(e.durationMs / 1000).toFixed(2)} s</td>
-                    <td className="px-3 py-2 text-xs tabular-nums text-slate-600">{e.attempt ?? 1} / 3</td>
-                    <td className="px-3 py-2 text-xs whitespace-nowrap text-slate-600">{dateTime(e.at)}</td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap text-slate-600">{time(e.at)}</td>
+                    <td className="px-3 py-2"><span className={cn('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', retrying ? 'bg-blue-50 text-blue-700 ring-blue-600/20' : PILL_CLS[p])}>{retrying ? 'Retrying…' : p}</span></td>
+                    <td className="max-w-[300px] truncate px-3 py-2 text-slate-700" title={e.result}>{message(e)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
+                      <span className="flex items-center gap-1">
+                        {p === 'Failed' ? (
+                          <button onClick={() => runDelayed(`retry-${e.id}`, (s) => replayEvent(s, e.id), 1100)} disabled={retrying} className="h-6 rounded bg-blue-600 px-2.5 text-[11px] font-semibold text-white hover:bg-blue-500 disabled:opacity-50">Retry</button>
+                        ) : p === 'Pending' ? (
+                          <button onClick={() => setOpenId(e.id)} className="h-6 rounded bg-blue-600 px-2.5 text-[11px] font-semibold text-white hover:bg-blue-500">Resolve</button>
+                        ) : (
+                          <button onClick={() => setOpenId(e.id)} className="h-6 rounded border border-blue-300 px-2.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50">View</button>
+                        )}
+                        <ActionMenu items={[
+                          { label: 'View details', onClick: () => setOpenId(e.id) },
+                          { label: 'Assign to Finance', onClick: () => run((s) => assignEvent(s, e.id, USERS.finance)), disabled: p !== 'Failed' && p !== 'Pending' },
+                          { label: 'Copy storage key', onClick: () => navigator.clipboard?.writeText(e.idempotencyKey).catch(() => undefined) },
+                        ]} />
+                      </span>
+                    </td>
                   </tr>
                 )
               })}
-              {rows.length === 0 && <tr><td colSpan={8} className="px-3 py-10 text-center text-sm text-slate-500">No runs match these filters.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={9} className="px-3 py-10 text-center text-sm text-slate-500">No events match this filter.</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <p className="border-b border-slate-200 px-4 py-2.5 text-[13px] font-semibold">Zap health</p>
-        <table className="w-full text-[13px]">
-          <tbody>
-            {ZAP_LIST.map((z) => {
-              const runs = state.events.filter((e) => e.scenario === z)
-              const last = runs[0]
-              const failing = runs.some((e) => e.status === 'failed' && !processed.includes(e.idempotencyKey))
-              return (
-                <tr key={z} className="border-t border-slate-100 first:border-0">
-                  <td className="w-8 px-4 py-2"><span className={cn('block size-2 rounded-full', failing ? 'bg-rose-500' : last ? 'bg-emerald-500' : 'bg-slate-300')} /></td>
-                  <td className="py-2 font-medium">{z}</td>
-                  <td className="px-4 py-2 text-xs text-slate-500">{runs.length} runs</td>
-                  <td className="px-4 py-2 text-right text-xs text-slate-500">{last ? `last ${time(last.at)}` : 'no runs yet'}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {open && <EventDrawer e={open} onClose={() => setOpenId(null)} />}
+      {open && <EventDrawer e={open} id={ids[open.id]} onClose={() => setOpenId(null)} />}
     </div>
   )
 }
 
-function EventDrawer({ e, onClose }: { e: AutomationEvent; onClose: () => void }) {
+/** Sequential, human-readable event IDs in time order (EVT-001 is the oldest). */
+function eventIds(events: AutomationEvent[]) {
+  const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+  return Object.fromEntries(sorted.map((e, i) => [e.id, `EVT-${String(i + 1).padStart(3, '0')}`])) as Record<string, string>
+}
+
+function EventDrawer({ e, id, onClose }: { e: AutomationEvent; id: string; onClose: () => void }) {
   const { state, run, runDelayed, busy } = useDemo()
   const [payload, setPayload] = useState(false)
   const v = viewStatus(e, state.processedKeys)
@@ -158,7 +163,7 @@ function EventDrawer({ e, onClose }: { e: AutomationEvent; onClose: () => void }
       open
       onClose={onClose}
       width={480}
-      title={<span className="flex items-center gap-2"><span className="font-mono text-sm text-slate-500">{evtId(e)}</span> {zapLabel(e)}</span>}
+      title={<span className="flex items-center gap-2"><span className="font-mono text-sm text-slate-500">{id}</span> {zapLabel(e)}</span>}
       subtitle={<span>{e.scenario.split(' · ')[1]} · {e.transaction ?? 'TXN-HVR-025'} · {dateTime(e.at)}</span>}
       footer={
         <>
@@ -221,7 +226,7 @@ function EventDrawer({ e, onClose }: { e: AutomationEvent; onClose: () => void }
         {later.length > 0 && (
           <div>
             <p className="mb-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">Later runs of this key</p>
-            <ul className="space-y-1 text-xs">{later.map((x) => <li key={x.id} className="flex justify-between"><span className="font-mono">{evtId(x)}</span><span>{viewStatus(x, state.processedKeys).label} · {time(x.at)}</span></li>)}</ul>
+            <ul className="space-y-1 text-xs">{later.map((x) => <li key={x.id} className="flex justify-between"><span className="font-mono">{eventIds(state.events)[x.id]}</span><span>{viewStatus(x, state.processedKeys).label} · {time(x.at)}</span></li>)}</ul>
           </div>
         )}
       </div>

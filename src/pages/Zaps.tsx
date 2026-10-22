@@ -1,8 +1,7 @@
-import { CheckCircle2, ChevronRight, CircleDashed, History, Play, Power, XCircle, Zap as ZapIcon } from 'lucide-react'
+import { Check, CheckCircle2, CircleDashed, History, Play, Power, XCircle, Zap as ZapIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Spinner } from '../components/ui/overlays'
 import { useSearchParams } from 'react-router-dom'
-import { Badge } from '../components/ui/primitives'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { USERS } from '../data/ids'
 import type { DemoState } from '../data/types'
@@ -40,14 +39,15 @@ export default function Zaps() {
   const runs = state.events.filter((e) => e.scenario === zap.name)
   const open = (id: string) => { setParams({ zap: id }); setStepIdx(0) }
   const flow = FLOWS.find((f) => f.n === zap.flow)!
+  const hasSuccess = runs.some((e) => e.status === 'success')
 
   return (
     <ProductFrame product="Zapier">
       <div className="flex min-h-0 flex-1 bg-[#f7f6f3] text-[#2d2e2e]">
+        <ZapierAppNav />
         {/* Zap list */}
-        <aside className="scroll-thin hidden w-72 shrink-0 overflow-y-auto border-r border-[#e6e3dc] bg-white md:block">
+        <aside className="scroll-thin hidden w-64 shrink-0 overflow-y-auto border-r border-[#e6e3dc] bg-white md:block">
           <div className="flex items-center gap-2 px-4 py-3">
-            <span className="flex size-7 items-center justify-center rounded bg-[#ff4f00] text-white"><ZapIcon size={15} /></span>
             <p className="font-semibold">Zaps</p>
             <span className="ml-auto text-xs text-slate-500">Pacific Horizon</span>
           </div>
@@ -75,10 +75,13 @@ export default function Zaps() {
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b border-[#e6e3dc] bg-white px-5 py-3">
             <div className="min-w-0">
-              <p className="text-xs text-slate-500">{flow.title}</p>
+              <p className="text-xs text-slate-500">Zaps <span className="mx-1">›</span> {flow.title}</p>
               <h1 className="truncate text-lg font-semibold">{zap.name}</h1>
             </div>
-            <Badge tone={zap.id === 'z6' ? 'slate' : 'green'} dot>{zap.id === 'z6' ? 'Draft · later phase' : 'Published · On'}</Badge>
+            <span className="inline-flex items-center gap-2 text-xs font-medium">
+              <span className={cn('relative h-5 w-9 rounded-full', zap.id === 'z6' ? 'bg-slate-300' : 'bg-[#1aa35a]')}><span className={cn('absolute top-0.5 size-4 rounded-full bg-white shadow', zap.id === 'z6' ? 'left-0.5' : 'left-[18px]')} /></span>
+              {zap.id === 'z6' ? 'Off · later phase' : 'On'}
+            </span>
             <div className="ml-auto flex items-center gap-2">
               <div className="flex overflow-hidden rounded-md border border-[#e6e3dc] text-sm">
                 <button onClick={() => setTab('editor')} className={cn('px-3 py-1.5', tab === 'editor' ? 'bg-[#2d2e2e] text-white' : 'bg-white')}>Editor</button>
@@ -107,10 +110,12 @@ export default function Zaps() {
                         <div className="flex items-center gap-3">
                           <AppBadge app={st.app} />
                           <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{i === 0 ? 'Trigger' : st.kind === 'filter' ? 'Filter' : st.kind === 'search' ? 'Search' : 'Action'} · {st.app}</p>
-                            <p className="truncate text-sm font-semibold">{i + 1}. {st.event}</p>
+                            <p className="truncate text-sm font-semibold">{i + 1}. {st.app}</p>
+                            <p className="truncate text-[13px] text-slate-600">{st.event}</p>
                           </div>
-                          {tested.has(`${zap.id}:${i}`) ? <CheckCircle2 size={16} className="text-emerald-600" /> : <ChevronRight size={15} className="text-slate-400" />}
+                          {tested.has(`${zap.id}:${i}`) || st.done?.(state) || (!st.done && hasSuccess)
+                            ? <span className="flex size-5 items-center justify-center rounded-full bg-[#1aa35a] text-white"><Check size={12} strokeWidth={3} /></span>
+                            : <span className="size-5 rounded-full border-2 border-slate-300" />}
                         </div>
                       </button>
                       {i < zap.steps.length - 1 && <span className="h-5 w-px bg-slate-400" />}
@@ -279,5 +284,21 @@ function RunsTable({ zap }: { zap: ZapDef }) {
         </table>
       )}
     </div>
+  )
+}
+
+/** Zapier-style app navigation (original component, no vendor logo). */
+function ZapierAppNav() {
+  const items: [string, string?][] = [['Zaps'], ['Tables'], ['Interfaces'], ['Chatbots', 'Beta'], ['Canvas', 'Beta'], ['Agents', 'Beta'], ['Apps'], ['Zap History'], ['More']]
+  return (
+    <nav className="hidden w-44 shrink-0 flex-col border-r border-[#e6e3dc] bg-white px-2 py-3 text-[13px] lg:flex" aria-label="Zapier">
+      <div className="mb-3 flex items-center gap-1.5 px-2"><span className="flex size-6 items-center justify-center rounded bg-[#ff4f00] text-white"><ZapIcon size={13} /></span><span className="font-bold tracking-tight">Zapier</span></div>
+      <button className="mb-3 h-9 rounded-full bg-[#ff4f00] text-sm font-semibold text-white hover:brightness-110">+ Create</button>
+      {items.map(([label, tag]) => (
+        <span key={label} className={cn('flex items-center gap-2 rounded-md px-2.5 py-1.5', label === 'Zaps' ? 'bg-[#fff1eb] font-semibold text-[#2d2e2e]' : 'text-slate-600 hover:bg-slate-50')}>
+          {label}{tag && <span className="ml-auto rounded bg-slate-100 px-1 text-[10px] text-slate-500">{tag}</span>}
+        </span>
+      ))}
+    </nav>
   )
 }

@@ -1,12 +1,12 @@
 import {
   AlertTriangle,
+  Building2,
   Bell,
   BarChart3,
   Bookmark,
   Calendar,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Copy,
   FileText,
@@ -16,7 +16,6 @@ import {
   LayoutGrid,
   List,
   Mail,
-  Megaphone,
   MoreHorizontal,
   Pencil,
   Phone,
@@ -30,12 +29,12 @@ import {
   Zap,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ProductFrame } from '../components/ui/ProductFrame'
 import { ActionMenu, ConfirmDialog } from '../components/ui/overlays'
 import { IDS } from '../data/ids'
 import { DEAL_STAGES, type HubSpotDeal, type HubSpotTimelineItem } from '../data/types'
-import { cn, date, dateTime, initials, longDate, vt } from '../lib/format'
+import { cn, date, dateTime, initials, longDate, time, vt } from '../lib/format'
 import { useDemo } from '../store/DemoStore'
 import { addHubSpotNote, createHubSpotContact, findDuplicateContact, hubspotHasPendingChanges, setDealStage, syncHubSpot } from '../store/engine'
 
@@ -43,36 +42,44 @@ import { addHubSpotNote, createHubSpotContact, findDuplicateContact, hubspotHasP
 /* Chrome                                                               */
 /* ------------------------------------------------------------------ */
 
-function HubSpotChrome({ children }: { children: ReactNode }) {
-  const rail = [
-    { Icon: Bookmark, label: 'Bookmarks' },
-    { Icon: Users, label: 'CRM', active: true },
-    { Icon: Megaphone, label: 'Marketing' },
-    { Icon: Handshake, label: 'Sales' },
-    { Icon: Headphones, label: 'Service' },
-    { Icon: Zap, label: 'Automation' },
-    { Icon: BarChart3, label: 'Reporting' },
+type HsNav = 'Dashboard' | 'Contacts' | 'Companies' | 'Deals' | 'Tickets' | 'Tasks' | 'Meetings' | 'Playbooks' | 'Reports'
+
+function HubSpotChrome({ children, active = 'Deals' }: { children: ReactNode; active?: HsNav }) {
+  const side: { label: HsNav; Icon: typeof Users; to?: string }[] = [
+    { label: 'Dashboard', Icon: LayoutGrid },
+    { label: 'Contacts', Icon: Users, to: '/crm?view=contacts' },
+    { label: 'Companies', Icon: Building2 },
+    { label: 'Deals', Icon: Handshake, to: '/crm' },
+    { label: 'Tickets', Icon: Headphones },
+    { label: 'Tasks', Icon: CheckCircle2 },
+    { label: 'Meetings', Icon: Calendar },
+    { label: 'Playbooks', Icon: Bookmark },
+    { label: 'Reports', Icon: BarChart3 },
   ]
+  const top = ['Contacts', 'Conversations', 'Marketing', 'Sales', 'Service', 'Automation', 'Reports']
   return (
     <ProductFrame product="HubSpot">
       <div className="flex min-h-0 flex-1 flex-col bg-hs-bg text-hs-text" style={{ fontFamily: "'Lexend Deca', Inter, sans-serif" }}>
-        <div className="flex h-11 shrink-0 items-center gap-3 bg-hs-nav px-3 text-white">
-          <span className="flex size-7 items-center justify-center rounded-full bg-hs-orange text-xs font-bold" title="CRM (simulated)">CRM</span>
-          <div className="mx-auto flex h-7 w-full max-w-md items-center gap-2 rounded-sm bg-white/10 px-2.5 text-xs text-white/70">
-            <Search size={13} /> Search HubSpot (simulated)
+        <div className="flex h-11 shrink-0 items-center gap-1 bg-hs-nav px-3 text-[13px] text-white">
+          <span className="mr-3 flex size-7 items-center justify-center rounded-full bg-hs-orange" title="CRM (simulated — no vendor logo)"><Users size={14} /></span>
+          <nav className="hidden items-center lg:flex">
+            {top.map((m) => (
+              <span key={m} className={cn('inline-flex items-center gap-0.5 rounded-[3px] px-2.5 py-1.5', m === 'Contacts' ? 'text-white' : 'text-white/80 hover:bg-white/10')}>{m} <ChevronDown size={12} className="opacity-70" /></span>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-3 text-white/80">
+            <Search size={16} />
+            <Bell size={16} />
+            <Settings size={16} />
+            <span className="flex size-7 items-center justify-center rounded-full bg-hs-teal text-[10px] font-semibold text-white">SW</span>
           </div>
-          <Bell size={16} className="text-white/70" />
-          <Settings size={16} className="text-white/70" />
-          <span className="flex size-7 items-center justify-center rounded-full bg-hs-teal text-[10px] font-semibold">SW</span>
-          <span className="hidden text-xs text-white/80 md:inline">Pacific Horizon (demo portal)</span>
         </div>
         <div className="flex min-h-0 flex-1">
-          <nav className="hidden w-12 shrink-0 flex-col items-center gap-1 bg-hs-nav pt-2 sm:flex">
-            {rail.map(({ Icon, label, active }) => (
-              <span key={label} title={label} className={cn('flex size-9 items-center justify-center rounded', active ? 'bg-white/15 text-white' : 'text-white/55')}>
-                <Icon size={17} />
-              </span>
-            ))}
+          <nav className="hidden w-44 shrink-0 flex-col gap-0.5 bg-[#2e3f50] py-2 text-[13px] text-white/80 sm:flex" aria-label="CRM">
+            {side.map(({ label, Icon, to }) => {
+              const cls = cn('mx-2 flex items-center gap-2.5 rounded-[3px] px-2.5 py-2', label === active ? 'bg-[#425b76] font-medium text-white' : 'hover:bg-white/5')
+              return to ? <Link key={label} to={to} className={cls}><Icon size={15} />{label}</Link> : <span key={label} className={cls}><Icon size={15} />{label}</span>
+            })}
           </nav>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
         </div>
@@ -89,7 +96,7 @@ export function CrmIndex() {
   const [params, setParams] = useSearchParams()
   const view = params.get('view') === 'contacts' ? 'contacts' : 'deals'
   return (
-    <HubSpotChrome>
+    <HubSpotChrome active={view === 'contacts' ? 'Contacts' : 'Deals'}>
       <div className="flex shrink-0 items-center gap-6 border-b border-hs-border bg-white px-5 pt-3">
         {(['contacts', 'deals'] as const).map((v) => (
           <button key={v} onClick={() => setParams({ view: v })} className={cn('border-b-[3px] pb-2.5 text-sm font-medium capitalize', view === v ? 'border-hs-text text-hs-text' : 'border-transparent text-hs-link hover:text-hs-text')}>
@@ -356,33 +363,6 @@ function ActionIcons({ compact }: { compact?: boolean } = {}) {
   )
 }
 
-function Collapsible({ title, children, defaultOpen = true, actions }: { title: string; children: ReactNode; defaultOpen?: boolean; actions?: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <section className="border-t border-hs-border">
-      <div className="flex items-center gap-1 px-4 py-3">
-        <button onClick={() => setOpen((o) => !o)} className="flex flex-1 items-center gap-1 text-left text-sm font-semibold">
-          {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />} {title}
-        </button>
-        {actions}
-      </div>
-      {open && <div className="px-4 pb-4">{children}</div>}
-    </section>
-  )
-}
-
-function Prop({ label, value, mono, highlight }: { label: string; value: ReactNode; mono?: boolean; highlight?: boolean }) {
-  return (
-    <div className={cn('group -mx-2 rounded px-2 py-1.5 hover:bg-[#f5f8fa]', highlight && 'animate-flash')}>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={cn('flex items-center justify-between text-sm', mono && 'font-mono text-[13px]')}>
-        <span>{value || '—'}</span>
-        <Pencil size={12} className="text-hs-link opacity-0 group-hover:opacity-100" />
-      </p>
-    </div>
-  )
-}
-
 const timelineIcon: Record<HubSpotTimelineItem['type'], { Icon: typeof Mail; cls: string }> = {
   integration: { Icon: Zap, cls: 'bg-[#e5f5f8] text-[#0091ae]' },
   note: { Icon: StickyNote, cls: 'bg-[#fef8f0] text-[#dbae60]' },
@@ -457,73 +437,6 @@ function DuplicateCheckCard() {
   )
 }
 
-function RecordLayout({ left, middle, right }: { left: ReactNode; middle: ReactNode; right: ReactNode }) {
-  return (
-    <div className="flex min-h-0 flex-1">
-      <aside className="scroll-thin w-80 shrink-0 overflow-y-auto border-r border-hs-border bg-white">{left}</aside>
-      <section className="scroll-thin min-w-0 flex-1 overflow-y-auto">{middle}</section>
-      <aside className="scroll-thin hidden w-80 shrink-0 overflow-y-auto border-l border-hs-border bg-white xl:block">{right}</aside>
-    </div>
-  )
-}
-
-function MiddleTabs({ overview }: { overview: ReactNode }) {
-  const { run } = useDemo()
-  const [tab, setTab] = useState<'overview' | 'activities'>('overview')
-  const [filter, setFilter] = useState<'all' | HubSpotTimelineItem['type']>('all')
-  const [note, setNote] = useState('')
-  return (
-    <div>
-      <div className="flex gap-6 border-b border-hs-border bg-white px-6 pt-3">
-        {(['overview', 'activities'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn('border-b-[3px] pb-2.5 text-sm font-medium capitalize', tab === t ? 'border-hs-text' : 'border-transparent text-hs-link')}>{t}</button>
-        ))}
-      </div>
-      <div className="space-y-4 p-6">
-        {tab === 'overview' ? (
-          <>
-            {overview}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Recent activities</h3>
-                <button onClick={() => setTab('activities')} className="text-xs text-hs-link hover:underline">View all</button>
-              </div>
-              <Timeline filter="all" />
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-1.5">
-              {(['all', 'integration', 'note', 'email', 'call', 'task', 'stage'] as const).map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={cn('rounded-full border px-3 py-1 text-xs capitalize', filter === f ? 'border-hs-text bg-hs-text text-white' : 'border-hs-border bg-white')}>{f === 'all' ? 'Activity' : f}</button>
-              ))}
-            </div>
-            <div className="rounded-sm border border-hs-border bg-white p-3">
-              <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Start typing to leave a note…" className="w-full resize-none text-sm outline-none" />
-              <div className="flex justify-end">
-                <button disabled={!note.trim()} onClick={() => { run((s) => addHubSpotNote(s, note.trim())); setNote('') }} className="h-8 rounded-sm bg-hs-orange px-3 text-xs font-medium text-white disabled:opacity-40">Save note</button>
-              </div>
-            </div>
-            <Timeline filter={filter} />
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function AssocCard({ title, count, children, onAdd }: { title: string; count: number; children?: ReactNode; onAdd?: boolean }) {
-  return (
-    <section className="border-b border-hs-border">
-      <div className="flex items-center justify-between px-4 py-3">
-        <p className="flex items-center gap-1 text-sm font-semibold"><ChevronDown size={15} /> {title} ({count})</p>
-        {onAdd !== false && <span className="inline-flex items-center gap-0.5 text-xs text-hs-link"><Plus size={12} /> Add</span>}
-      </div>
-      <div className="px-4 pb-4">{children ?? <p className="text-xs text-slate-500">No associated objects of this type exist.</p>}</div>
-    </section>
-  )
-}
-
 function SyncBanner() {
   const { state, run } = useDemo()
   if (!hubspotHasPendingChanges(state)) return null
@@ -549,164 +462,166 @@ function PropRow({ label, value, mono }: { label: string; value: ReactNode; mono
 
 export function DealRecord() {
   const { state, run } = useDemo()
+  const navigate = useNavigate()
   const deal = state.hubspot.deals.find((d) => d.id === IDS.hubspotDeal)!
   const contact = state.hubspot.contacts.find((c) => c.id === deal.contactId)
   const contract = state.contract
-  const stageIdx = DEAL_STAGES.indexOf(deal.stage)
+  const won = deal.stage === 'Closed Won'
   const [pendingStage, setPendingStage] = useState<HubSpotDeal['stage'] | null>(null)
+  const [tab, setTab] = useState<'Overview' | 'Activities' | 'Contacts' | 'Companies' | 'Deals' | 'Attachments'>('Overview')
+  const [note, setNote] = useState('')
   const files = ['gd-f-passport', 'gd-f-address', 'gd-f-application', contract.driveFileId, contract.approvedFileId, contract.signedFileId]
     .map((id) => state.drive.files.find((x) => x.id === id))
     .filter((f): f is NonNullable<typeof f> => !!f)
-  const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => undefined)
+  const btn = 'inline-flex h-8 items-center gap-1 rounded-[3px] border px-3 text-[13px] font-medium'
 
   return (
-    <HubSpotChrome>
+    <HubSpotChrome active="Deals">
       <SyncBanner />
-      {/* Record header */}
-      <div className="shrink-0 border-b border-hs-border bg-white px-6 pt-3 pb-3">
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <NavLink to="/crm?view=deals" className="inline-flex items-center gap-0.5 text-hs-link hover:underline"><ChevronLeft size={15} /> Deals</NavLink>
-          <div className="flex items-center gap-2">
-            <button onClick={() => copy(deal.id)} className="inline-flex items-center gap-1 font-mono text-xs text-[#516f90] hover:text-hs-link"><Copy size={11} /> {deal.id}</button>
-            <ActionMenu
-              trigger={<span className="inline-flex items-center gap-1 rounded-[3px] border border-hs-border px-3 py-1 text-sm text-hs-text">Actions <ChevronDown size={13} /></span>}
-              items={[
-                { label: 'Sync from Process Street', onClick: () => run((s) => syncHubSpot(s, 'HubSpot deal → Actions')) },
-                { label: 'View Zap 3 (Xero)', onClick: () => window.location.assign('#/zaps?zap=z3') },
-                { label: 'Open Drive folder', onClick: () => window.location.assign(`#/documents/${IDS.driveFolder}`) },
-                { label: 'Delete', disabled: true, danger: true },
-              ]}
-            />
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-[3px] bg-[#ffebe6] text-hs-orange"><Handshake size={20} /></span>
-            <div>
-              <h1 className="text-[22px] leading-tight font-semibold text-hs-text">{deal.name}</h1>
-              <p className="text-xs text-[#516f90]">Lot Sales pipeline · created {dateTime(deal.createdAt)}</p>
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+        {/* Record header */}
+        <div className="border-b border-hs-border bg-white px-6 pt-3 pb-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+            <p><Link to="/crm" className="text-hs-link hover:underline">Deals</Link> <span className="mx-1 text-[#7c98b6]">›</span> {deal.name}</p>
+            <div className="flex items-center gap-1.5">
+              <ActionMenu
+                trigger={<span className={cn(btn, 'border-hs-border bg-white text-hs-text')}>Actions <ChevronDown size={13} /></span>}
+                items={[
+                  { label: 'Sync from Process Street', onClick: () => run((s) => syncHubSpot(s, 'HubSpot deal → Actions')) },
+                  { label: 'View Zap 3 (Xero)', onClick: () => navigate('/zaps?zap=z3') },
+                  { label: 'Open Drive folder', onClick: () => navigate(`/documents/${IDS.driveFolder}`) },
+                  { label: 'Delete', disabled: true, danger: true },
+                ]}
+              />
+              <button className={cn(btn, 'border-hs-border bg-white text-hs-text')} onClick={() => navigate('/workflow?step=1')}>Edit</button>
+              {won ? (
+                <button className={cn(btn, 'border-hs-link bg-hs-link text-white')} onClick={() => navigate('/accounting')}>{deal.xeroInvoice ? `View invoice ${deal.xeroInvoice}` : 'Create invoice'}</button>
+              ) : (
+                <button className={cn(btn, 'border-hs-orange bg-hs-orange text-white')} onClick={() => setPendingStage('Closed Won')}>Mark as won</button>
+              )}
             </div>
           </div>
-          <dl className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <div><dt className="text-xs text-[#516f90]">Amount</dt><dd className="font-semibold">{vt(deal.amount)}</dd></div>
-            <div><dt className="text-xs text-[#516f90]">Close date</dt><dd>{longDate(deal.settlementDate)}</dd></div>
-            <div><dt className="text-xs text-[#516f90]">Deal owner</dt><dd className="flex items-center gap-1.5"><span className="flex size-5 items-center justify-center rounded-full bg-hs-teal text-[9px] font-semibold text-white">SW</span>{deal.owner}</dd></div>
-            <div>
-              <dt className="text-xs text-[#516f90]">Deal stage</dt>
-              <dd>
-                <select value={deal.stage} onChange={(e) => setPendingStage(e.target.value as HubSpotDeal['stage'])} className="rounded-[3px] border border-hs-border bg-[#f5f8fa] px-2 py-1 text-sm font-semibold text-hs-text" aria-label="Deal stage">
-                  {DEAL_STAGES.map((st) => <option key={st}>{st}</option>)}
-                </select>
-              </dd>
-            </div>
-          </dl>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-[26px] leading-tight font-semibold text-hs-text">{deal.name}</h1>
+            {won && <span className="rounded-[3px] bg-[#00bda5] px-2 py-0.5 text-xs font-semibold text-white">Closed Won</span>}
+          </div>
+          <p className="mt-1 text-[13px] text-[#516f90]">Amount: <b className="text-hs-text">{vt(deal.amount)}</b> <span className="mx-2">|</span> Close date: {date(deal.settlementDate)} <span className="mx-2">|</span> <span className="font-mono">{deal.id}</span></p>
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-[13px]">
+            <label className="flex items-center gap-1.5">Pipeline: <select className="rounded-[3px] border border-hs-border bg-white px-1.5 py-0.5" disabled><option>{deal.pipeline}</option></select></label>
+            <label className="flex items-center gap-1.5">Stage:
+              <select value={deal.stage} onChange={(e) => setPendingStage(e.target.value as HubSpotDeal['stage'])} aria-label="Deal stage" className={cn('rounded-[3px] border px-1.5 py-0.5 font-medium', won ? 'border-[#00bda5] bg-[#e5f8f6] text-[#00826d]' : 'border-hs-border bg-white')}>
+                {DEAL_STAGES.map((st) => <option key={st}>{st}</option>)}
+              </select>
+            </label>
+            <span className="flex items-center gap-1.5">Owner: <span className="flex size-5 items-center justify-center rounded-full bg-hs-teal text-[9px] font-semibold text-white">SW</span>{deal.owner}</span>
+          </div>
+          <div className="mt-3 flex gap-6 text-[13px]">
+            {(['Overview', 'Activities', 'Contacts', 'Companies', 'Deals', 'Attachments'] as const).map((t) => (
+              <button key={t} onClick={() => setTab(t)} className={cn('border-b-[3px] pb-2 font-medium', tab === t ? 'border-hs-link text-hs-text' : 'border-transparent text-hs-link')}>{t}{t === 'Attachments' ? ` (${files.length})` : ''}</button>
+            ))}
+          </div>
         </div>
-        <div className="mt-3 flex gap-1">
-          {DEAL_STAGES.map((st, i) => (
-            <div key={st} className="flex-1" title={st}>
-              <div className={cn('h-1.5 rounded-full', i <= stageIdx ? 'bg-[#00bda5]' : 'bg-[#eaf0f6]')} />
-              <p className={cn('mt-1 hidden truncate text-[10px] md:block', i === stageIdx ? 'font-semibold text-hs-text' : 'text-[#7c98b6]')}>{st}</p>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="flex min-h-0 flex-1">
-        <section className="scroll-thin min-w-0 flex-1 overflow-y-auto">
-          <MiddleTabs
-            overview={
-              <>
-                <div className="rounded-[3px] border border-hs-border bg-white">
-                  <div className="flex items-center justify-between border-b border-hs-border px-4 py-2.5"><p className="text-sm font-semibold">Data highlights</p><ActionIcons compact /></div>
-                  <div className="grid grid-cols-2 gap-4 p-4 text-xs md:grid-cols-4">
-                    <div><p className="font-semibold text-[#516f90] uppercase">Create date</p><p className="text-sm">{dateTime(deal.createdAt)}</p></div>
-                    <div><p className="font-semibold text-[#516f90] uppercase">Deal stage</p><p className="text-sm">{deal.stage}</p></div>
-                    <div><p className="font-semibold text-[#516f90] uppercase">Last activity</p><p className="text-sm">{dateTime(state.hubspot.timeline[0]?.at ?? deal.updatedAt)}</p></div>
-                    <div><p className="font-semibold text-[#516f90] uppercase">Xero invoice</p><p className="text-sm">{deal.xeroInvoice ?? '—'}</p></div>
-                  </div>
-                </div>
+        <div className="p-5">
+          {tab === 'Overview' && (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <section className="rounded-[3px] border border-hs-border bg-white">
+                  <h2 className="border-b border-hs-border px-4 py-3 text-sm font-semibold">About this deal</h2>
+                  <dl className="grid gap-x-6 px-4 py-2 text-[13px] sm:grid-cols-2">
+                    {([
+                      ['Deal name', deal.name], ['Amount', vt(deal.amount)], ['Project', deal.project], ['Lot ID', deal.lotId], ['Buyer ID', deal.buyerId], ['Currency', deal.currency],
+                      ['Deal stage', <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', won ? 'bg-[#e5f8f6] text-[#00a38d]' : 'bg-[#fef1e6] text-[#c25d00]')}>{deal.stage}</span>],
+                      ['Owner', deal.owner], ['Settlement date', longDate(deal.settlementDate)], ['Deal key', <span className="font-mono">{deal.lotId}-{deal.buyerId}</span>],
+                      ['Contract status', contract.signature === 'Signed' ? 'Signed' : contract.status === 'Approved' ? 'Approved — out for signature' : contract.status === 'Generated' ? 'Draft' : 'Not generated'],
+                      ['Xero invoice', deal.xeroInvoice ?? '—'],
+                    ] as [string, ReactNode][]).map(([k, v]) => (
+                      <div key={k} className="grid grid-cols-[110px_1fr] gap-2 border-b border-[#eaf0f6] py-2 last:border-0"><dt className="text-[#516f90]">{k}</dt><dd className="text-hs-text">{v}</dd></div>
+                    ))}
+                  </dl>
+                </section>
                 <DuplicateCheckCard />
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <AssocTile title="Contact" count={contact ? 1 : 0}>
-                    {contact && (
-                      <Link to="/crm/contact" className="flex items-center gap-2.5 hover:underline">
-                        <span className="flex size-8 items-center justify-center rounded-full bg-[#eaf0f6] text-xs font-semibold">{initials(`${contact.firstName} ${contact.lastName}`)}</span>
-                        <span className="min-w-0"><span className="block text-sm font-semibold text-hs-link">{contact.firstName} {contact.lastName}</span><span className="block truncate text-xs text-[#516f90]">{contact.email}</span></span>
-                      </Link>
-                    )}
-                  </AssocTile>
-                  <AssocTile title="Documents" count={files.length}>
-                    {files.length ? (
-                      <ul className="space-y-1 text-xs">{files.slice(0, 4).map((f) => <li key={f.id}><Link to={`/documents/${f.parentId}?file=${f.id}`} className="flex items-center gap-1.5 text-hs-link hover:underline"><FileText size={12} /><span className="truncate">{f.name}</span></Link></li>)}</ul>
-                    ) : <p className="text-xs text-[#516f90]">Filed to Google Drive by Zap 2A at step 6.</p>}
-                  </AssocTile>
-                  <AssocTile title="Invoice" count={state.xero.invoice ? 1 : 0}>
-                    {state.xero.invoice ? (
-                      <Link to="/accounting/invoice" className="block text-sm hover:underline"><span className="font-semibold text-hs-link">{state.xero.invoice.number}</span> · <span className="text-xs">{state.xero.invoice.status} (Xero, simulated)</span></Link>
-                    ) : <p className="text-xs text-[#516f90]">Zap 3 creates a Xero draft once the deal is Closed Won and the contract is signed.</p>}
-                  </AssocTile>
-                </div>
-              </>
-            }
-          />
-        </section>
-
-        <aside className="scroll-thin hidden w-[320px] shrink-0 overflow-y-auto border-l border-hs-border bg-white lg:block">
-          <Collapsible title="About this deal" actions={<span className="text-xs text-hs-link">Actions ▾</span>}>
-            <PropRow label="Project" value={deal.project} />
-            <PropRow label="Lot ID" value={deal.lotId} mono />
-            <PropRow label="Buyer ID" value={deal.buyerId} mono />
-            <PropRow label="Sale price" value={vt(deal.amount)} />
-            <PropRow label="Currency" value={deal.currency} />
-            <PropRow label="Settlement date" value={longDate(deal.settlementDate)} />
-            <PropRow label="Sales representative" value={deal.owner} />
-            <PropRow label="Pipeline" value={deal.pipeline} />
-            <PropRow label="Deal key" value={`${deal.lotId}-${deal.buyerId}`} mono />
-            <PropRow label="Contract status" value={contract.signature === 'Signed' ? 'Signed' : contract.status === 'Approved' ? 'Approved — out for signature' : contract.status === 'Generated' ? 'Draft' : 'Not generated'} />
-            <PropRow label="Xero invoice number" value={deal.xeroInvoice ?? ''} mono />
-            <PropRow label="Last modified date" value={dateTime(deal.updatedAt)} />
-          </Collapsible>
-          <Collapsible title="Integration references" defaultOpen={false}>
-            <PropRow label="Process Street run" value={<Link className="text-hs-link" to="/workflow">{IDS.processStreetRun}</Link>} mono />
-            <PropRow label="Transaction ID" value={IDS.transaction} mono />
-            <PropRow label="Google Drive folder" value={<Link className="text-hs-link" to={`/documents/${IDS.driveFolder}`}>{IDS.driveFolder}</Link>} mono />
-            <PropRow label="Contract" value={<Link className="text-hs-link" to="/contracts">{IDS.contract}</Link>} mono />
-          </Collapsible>
-          <AssocCard title="Contacts" count={contact ? 1 : 0}>
-            {contact && (
-              <Link to="/crm/contact" className="block rounded-[3px] border border-hs-border p-3 hover:border-hs-teal">
-                <p className="text-sm font-semibold text-hs-link">{contact.firstName} {contact.lastName}</p>
-                <p className="truncate text-xs">{contact.email} · {contact.phone}</p>
-                <p className="mt-1 text-[11px] text-[#516f90]">Primary · Buyer · {contact.id}</p>
-              </Link>
-            )}
-          </AssocCard>
-          <AssocCard title="Companies" count={0} />
-        </aside>
+              </div>
+              <div className="space-y-4">
+                <section className="rounded-[3px] border border-hs-border bg-white">
+                  <div className="flex items-center justify-between border-b border-hs-border px-4 py-3"><h2 className="text-sm font-semibold">Associated contact</h2><span className="text-xs text-hs-link">Edit</span></div>
+                  {contact && (
+                    <div className="flex items-start gap-3 p-4">
+                      <span className="flex size-11 items-center justify-center rounded-full bg-[#4f81bd] text-sm font-semibold text-white">{initials(`${contact.firstName} ${contact.lastName}`)}</span>
+                      <div className="min-w-0 flex-1 text-[13px]">
+                        <Link to="/crm/contact" className="text-[15px] font-semibold text-hs-link hover:underline">{contact.firstName} {contact.lastName}</Link>
+                        <p className="text-hs-link">{contact.email}</p>
+                        <p className="text-[#516f90]">{contact.phone} · {contact.buyerId}</p>
+                      </div>
+                      <Link to="/crm/contact" className="rounded-[3px] border border-hs-link px-2.5 py-1 text-xs font-medium text-hs-link hover:bg-[#e5f5f8]">View contact</Link>
+                    </div>
+                  )}
+                </section>
+                <section className="rounded-[3px] border border-hs-border bg-white">
+                  <div className="flex items-center justify-between border-b border-hs-border px-4 py-3"><h2 className="text-sm font-semibold">{won ? 'Deal activity' : 'Timeline'}</h2><button onClick={() => setTab('Activities')} className="rounded-[3px] border border-hs-border px-2 py-0.5 text-xs">Filter ▾</button></div>
+                  <ol className="px-4 py-3">
+                    {state.hubspot.timeline.slice(0, 7).map((t) => (
+                      <li key={t.id} className="relative grid grid-cols-[14px_44px_1fr] gap-2 pb-2.5 text-[13px] last:pb-0">
+                        <span className="mt-1.5 size-2 rounded-full bg-[#00bda5]" />
+                        <span className="tabular-nums text-[#516f90]">{time(t.at)}</span>
+                        <span>{t.title}{t.type === 'stage' && t.body ? <span className="block text-xs text-[#516f90]">{t.body}</span> : null}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+                <section className="rounded-[3px] border border-hs-border bg-white">
+                  <h2 className="border-b border-hs-border px-4 py-3 text-sm font-semibold">Associated records</h2>
+                  <ul className="divide-y divide-[#eaf0f6] text-[13px]">
+                    <li className="flex justify-between px-4 py-2"><span>Documents (Google Drive)</span><span className="text-[#516f90]">{files.length ? `${files.length} files` : 'After Zap 2A'}</span></li>
+                    <li className="flex justify-between px-4 py-2"><span>Invoice (Xero)</span>{state.xero.invoice ? <Link to="/accounting/invoice" className="text-hs-link">{state.xero.invoice.number} · {state.xero.invoice.status}</Link> : <span className="text-[#516f90]">After deal won</span>}</li>
+                    <li className="flex justify-between px-4 py-2"><span>Process Street run</span><Link to="/workflow" className="font-mono text-hs-link">{IDS.processStreetRun}</Link></li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          )}
+          {tab === 'Activities' && (
+            <div className="max-w-3xl space-y-3">
+              <div className="rounded-[3px] border border-hs-border bg-white p-3">
+                <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Start typing to leave a note…" className="w-full resize-none text-sm outline-none" />
+                <div className="flex justify-end"><button disabled={!note.trim()} onClick={() => { run((s) => addHubSpotNote(s, note.trim())); setNote('') }} className="h-8 rounded-[3px] bg-hs-orange px-3 text-xs font-medium text-white disabled:opacity-40">Save note</button></div>
+              </div>
+              <Timeline filter="all" />
+            </div>
+          )}
+          {tab === 'Contacts' && contact && <div className="max-w-md"><DealSummaryContact name={`${contact.firstName} ${contact.lastName}`} email={contact.email} /></div>}
+          {tab === 'Attachments' && (
+            <ul className="max-w-2xl divide-y divide-[#eaf0f6] rounded-[3px] border border-hs-border bg-white text-[13px]">
+              {files.length === 0 && <li className="px-4 py-6 text-center text-[#516f90]">No attachments yet — Zap 2A files them when the contract is generated.</li>}
+              {files.map((f) => <li key={f.id}><Link to={`/documents/${f.parentId}?file=${f.id}`} className="flex items-center gap-2 px-4 py-2.5 text-hs-link hover:bg-[#f5f8fa]"><FileText size={14} /> {f.name}</Link></li>)}
+            </ul>
+          )}
+          {(tab === 'Companies' || tab === 'Deals') && <p className="py-8 text-center text-sm text-[#516f90]">No associated {tab.toLowerCase()}.</p>}
+        </div>
       </div>
 
       <ConfirmDialog
         open={!!pendingStage}
-        title={`Move deal to “${pendingStage}”?`}
-        confirmLabel="Move deal"
+        title={pendingStage === 'Closed Won' ? 'Mark this deal as won?' : `Move deal to “${pendingStage}”?`}
+        confirmLabel={pendingStage === 'Closed Won' ? 'Mark as won' : 'Move deal'}
         confirmClassName="bg-hs-orange hover:bg-hs-orange hover:brightness-105"
         onCancel={() => setPendingStage(null)}
         onConfirm={() => { const st = pendingStage!; setPendingStage(null); run((s) => setDealStage(s, deal.id, st)) }}
       >
         {pendingStage === 'Closed Won'
-          ? <>This triggers <b>Zap 3</b>. Its filter checks the contract is approved and signed before anything is created in Xero — moving the stage alone does not create an invoice.</>
+          ? <>This triggers <b>Zap 3</b>. Its filter checks the contract is approved and signed before anything is created in Xero — marking the deal won alone does not create an invoice.</>
           : <>The stage change is logged on the timeline. Zaps listen for specific stages only (Closed Won → Zap 3).</>}
       </ConfirmDialog>
     </HubSpotChrome>
   )
 }
 
-function AssocTile({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+function DealSummaryContact({ name, email }: { name: string; email: string }) {
   return (
-    <div className="rounded-[3px] border border-hs-border bg-white">
-      <p className="border-b border-hs-border px-3 py-2 text-[13px] font-semibold">{title} <span className="font-normal text-[#516f90]">({count})</span></p>
-      <div className="p-3">{children}</div>
-    </div>
+    <Link to="/crm/contact" className="flex items-center gap-3 rounded-[3px] border border-hs-border bg-white p-4 hover:border-hs-teal">
+      <span className="flex size-10 items-center justify-center rounded-full bg-[#4f81bd] text-sm font-semibold text-white">{initials(name)}</span>
+      <span><span className="block font-semibold text-hs-link">{name}</span><span className="text-xs text-[#516f90]">{email} · Primary buyer</span></span>
+    </Link>
   )
 }
 
@@ -714,54 +629,78 @@ export function ContactRecord() {
   const { state } = useDemo()
   const contact = state.hubspot.contacts.find((c) => c.id === IDS.hubspotContact)!
   const deals = state.hubspot.deals.filter((d) => d.contactId === contact.id)
+  const [tab, setTab] = useState<'About' | 'Activity' | 'Companies' | 'Deals' | 'Tickets'>('About')
+  const name = `${contact.firstName} ${contact.lastName}`
+  const lastContact = state.hubspot.timeline.find((t) => t.type !== 'integration')?.at ?? contact.updatedAt
   return (
-    <HubSpotChrome>
+    <HubSpotChrome active="Contacts">
       <SyncBanner />
-      <RecordLayout
-        left={
-          <div>
-            <div className="flex items-center justify-between px-4 pt-3 text-sm">
-              <NavLink to="/crm?view=contacts" className="inline-flex items-center gap-0.5 text-hs-link hover:underline"><ChevronLeft size={15} /> Contacts</NavLink>
-              <span className="inline-flex items-center gap-0.5 text-hs-link">Actions <ChevronDown size={14} /></span>
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between px-6 pt-4 text-sm">
+          <p><Link to="/crm?view=contacts" className="text-hs-link hover:underline">Contacts</Link> <span className="mx-1 text-[#7c98b6]">›</span> {name}</p>
+          <ActionMenu
+            trigger={<span className="inline-flex items-center gap-1 rounded-[3px] border border-hs-border bg-white px-3 py-1 text-sm text-hs-text">Actions <ChevronDown size={13} /></span>}
+            items={[{ label: 'View deal', onClick: () => window.location.assign('#/crm/deal') }, { label: 'Merge', disabled: true }, { label: 'Delete', disabled: true, danger: true }]}
+          />
+        </div>
+        <div className="grid gap-5 px-6 py-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="overflow-hidden rounded-[3px] border border-hs-border bg-white">
+            <div className="flex flex-wrap items-start gap-4 px-6 pt-5 pb-4">
+              <span className="flex size-16 items-center justify-center rounded-full bg-[#4f81bd] text-2xl font-semibold text-white">{initials(name)}</span>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-semibold text-hs-text">{name}</h1>
+                <p className="mt-0.5 flex items-center gap-1.5 text-sm text-hs-link"><Mail size={13} /> {contact.email} <Copy size={11} className="text-[#7c98b6]" /></p>
+                <p className="flex items-center gap-1.5 text-sm text-[#516f90]"><Phone size={13} /> {contact.phone}</p>
+              </div>
             </div>
-            <div className="flex flex-col items-center px-4 pt-4 pb-4 text-center">
-              <span className="mb-2 flex size-16 items-center justify-center rounded-full bg-[#eaf0f6] text-lg font-semibold">{initials(`${contact.firstName} ${contact.lastName}`)}</span>
-              <h1 className="text-xl font-semibold">{contact.firstName} {contact.lastName}</h1>
-              <p className="text-sm">Buyer · {state.transaction.project}</p>
-              <p className="inline-flex items-center gap-1 text-sm text-hs-link">{contact.email} <Copy size={11} /></p>
-            </div>
-            <div className="pb-4"><ActionIcons /></div>
-            <Collapsible title="About this contact">
-              <Prop label="Email" value={contact.email} />
-              <Prop label="Phone number" value={contact.phone} />
-              <Prop label="Contact owner" value={contact.owner} />
-              <Prop label="Buyer ID" value={contact.buyerId} mono />
-              <Prop label="Lifecycle stage" value={contact.lifecycleStage} />
-              <Prop label="Lead status" value={contact.leadStatus} />
-              <Prop label="Country/Region" value={contact.country} />
-              <Prop label="Create date" value={dateTime(contact.createdAt)} />
-              <Prop label="Last modified date" value={dateTime(contact.updatedAt)} />
-            </Collapsible>
-          </div>
-        }
-        middle={<MiddleTabs overview={<DuplicateCheckCard />} />}
-        right={
-          <div>
-            <AssocCard title="Companies" count={0} />
-            <AssocCard title="Deals" count={deals.length}>
-              {deals.map((d) => (
-                <Link key={d.id} to="/crm/deal" className="block rounded-sm border border-hs-border p-3 hover:border-hs-teal">
-                  <p className="text-sm font-semibold text-hs-link">{d.name}</p>
-                  <p className="text-xs">Amount: {vt(d.amount)}</p>
-                  <p className="text-xs">Close date: {date(d.settlementDate)}</p>
-                  <p className="text-xs">Stage: {d.stage}</p>
-                </Link>
+            <div className="border-b border-hs-border px-6 pb-4"><ActionIcons /></div>
+            <div className="flex gap-6 border-b border-hs-border px-6 text-sm">
+              {(['About', 'Activity', 'Companies', 'Deals', 'Tickets'] as const).map((t) => (
+                <button key={t} onClick={() => setTab(t)} className={cn('border-b-[3px] py-2.5 font-medium', tab === t ? 'border-hs-text text-hs-text' : 'border-transparent text-hs-link')}>{t}{t === 'Deals' ? ` (${deals.length})` : ''}</button>
               ))}
-            </AssocCard>
-            <AssocCard title="Tickets" count={0} />
+            </div>
+            <div className="p-6">
+              {tab === 'About' && (
+                <div className="grid gap-x-8 sm:grid-cols-2">
+                  {([
+                    ['Email', contact.email], ['Phone', contact.phone], ['Country', contact.country], ['Lifecycle stage', contact.lifecycleStage],
+                    ['Last contacted', dateTime(lastContact)], ['Buyer ID', contact.buyerId], ['Contact owner', contact.owner], ['Lead status', contact.leadStatus],
+                    ['Record ID', contact.id], ['Create date', dateTime(contact.createdAt)],
+                  ] as [string, string][]).map(([k, v]) => <PropRow key={k} label={k} value={v} mono={k === 'Buyer ID' || k === 'Record ID'} />)}
+                </div>
+              )}
+              {tab === 'Activity' && <Timeline filter="all" />}
+              {tab === 'Deals' && deals.map((d) => <DealSummary key={d.id} deal={d} />)}
+              {(tab === 'Companies' || tab === 'Tickets') && <p className="py-6 text-center text-sm text-[#516f90]">No associated {tab.toLowerCase()}.</p>}
+            </div>
           </div>
-        }
-      />
+          <aside className="space-y-4">
+            <div className="rounded-[3px] border border-hs-border bg-white">
+              <div className="flex items-center justify-between border-b border-hs-border px-4 py-3">
+                <p className="flex items-center gap-1 text-sm font-semibold"><ChevronDown size={15} /> Deals ({deals.length})</p>
+                <span className="inline-flex items-center gap-0.5 text-xs text-hs-link"><Plus size={12} /> Add</span>
+              </div>
+              <div className="p-4">{deals.map((d) => <DealSummary key={d.id} deal={d} />)}</div>
+            </div>
+          </aside>
+          <div className="xl:col-span-1"><DuplicateCheckCard /></div>
+        </div>
+      </div>
     </HubSpotChrome>
+  )
+}
+
+function DealSummary({ deal }: { deal: HubSpotDeal }) {
+  return (
+    <div className="rounded-[3px] border border-hs-border p-4">
+      <Link to="/crm/deal" className="text-sm font-semibold text-hs-link hover:underline">{deal.name}</Link>
+      <p className="mt-1 text-sm font-semibold">VUV {deal.amount.toLocaleString('en-US')}</p>
+      <dl className="mt-2 space-y-1.5 text-xs">
+        <div className="flex items-center gap-2"><dt className="w-20 text-[#516f90]">Stage</dt><dd><span className={cn('rounded-full px-2 py-0.5 font-medium', deal.stage === 'Closed Won' ? 'bg-[#e5f8f6] text-[#00a38d]' : 'bg-[#fef1e6] text-[#c25d00]')}>{deal.stage}</span></dd></div>
+        <div className="flex gap-2"><dt className="w-20 text-[#516f90]">Close date</dt><dd>{date(deal.settlementDate)}</dd></div>
+        <div className="flex gap-2"><dt className="w-20 text-[#516f90]">Pipeline</dt><dd>{deal.pipeline}</dd></div>
+      </dl>
+      <Link to="/crm/deal" className="mt-3 inline-block rounded-[3px] border border-hs-link px-3 py-1 text-xs font-medium text-hs-link hover:bg-[#e5f5f8]">View deal</Link>
+    </div>
   )
 }

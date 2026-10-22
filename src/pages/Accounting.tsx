@@ -28,9 +28,14 @@ export function StatusPill({ status }: { status: InvoiceStatus }) {
   return <span className={cn('inline-block rounded px-2 py-0.5 text-xs font-semibold', statusCls[status])}>{status}</span>
 }
 
+const XERO_SIDE: [string, [string, string?][]][] = [
+  ['Sales', [['Invoices', '/accounting'], ['Quotes'], ['Credit notes'], ['Customers', '/accounting?view=contacts'], ['Products and services']]],
+  ['Purchases', [['Bills to pay', '/bills?view=xero'], ['Suppliers']]],
+  ['Reports', [['Reports', '/accounting?view=reports']]],
+]
+
 export function XeroChrome({ crumbs, title, actions, children, active = 'Sales', subActive }: { crumbs: { label: string; to?: string }[]; title: ReactNode; actions?: ReactNode; children: ReactNode; active?: string; subActive?: string }) {
   const menu: [string, string][] = [['Home', '/accounting'], ['Sales', '/accounting'], ['Purchases', '/bills?view=xero'], ['Reporting', '/accounting?view=reports'], ['Accounting', '/accounting'], ['Contacts', '/accounting?view=contacts']]
-  const sub: [string, string][] = [['Sales', '/accounting'], ['Invoices', '/accounting'], ['Contacts', '/accounting?view=contacts'], ['Reports', '/accounting?view=reports'], ['Bills to pay', '/bills?view=xero']]
   return (
     <ProductFrame product="Xero">
       <div className="flex min-h-0 flex-1 flex-col bg-xr-bg text-[#000a1e]" style={{ fontFamily: "Inter, 'Helvetica Neue', Arial, sans-serif" }}>
@@ -53,13 +58,22 @@ export function XeroChrome({ crumbs, title, actions, children, active = 'Sales',
             <span className="flex size-7 items-center justify-center rounded-full bg-[#00b0a3] text-[11px] font-semibold">MT</span>
           </div>
         </div>
-        <nav className="flex shrink-0 items-center gap-1 border-b border-[#d6dade] bg-white px-4 text-[13px]" aria-label="Accounting">
-          {sub.map(([m, to]) => {
-            const on = (m === 'Invoices' && active === 'Sales' && subActive !== 'Contacts' && subActive !== 'Reports') || m === subActive
-            return <Link key={m} to={to} className={cn('border-b-2 px-3 py-2.5', on ? 'border-xr-blue font-semibold text-xr-blue' : 'border-transparent text-slate-700 hover:text-xr-blue')}>{m}</Link>
-          })}
-          <span className="ml-auto rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold tracking-wider text-amber-900">SIMULATED XERO TRANSACTION — NOT POSTED TO XERO</span>
+        <div className="flex min-h-0 flex-1">
+        <nav className="scroll-thin hidden w-48 shrink-0 overflow-y-auto border-r border-[#d6dade] bg-white py-3 text-[13px] lg:block" aria-label="Accounting">
+          {XERO_SIDE.map(([group, items]) => (
+            <div key={group} className="mb-3">
+              <p className="px-4 pb-1 font-semibold text-[#000a1e]">{group}</p>
+              {items.map(([label, to]) => {
+                const on = label === (subActive ?? 'Invoices')
+                return to
+                  ? <Link key={label} to={to} className={cn('block border-l-[3px] px-4 py-1.5', on ? 'border-xr-blue bg-[#eef5fc] font-semibold text-xr-blue' : 'border-transparent text-slate-700 hover:bg-slate-50')}>{label}</Link>
+                  : <span key={label} className="block border-l-[3px] border-transparent px-4 py-1.5 text-slate-500">{label}</span>
+              })}
+            </div>
+          ))}
         </nav>
+        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-end border-b border-[#d6dade] bg-[#fffbeb] px-4 py-1"><span className="text-[10px] font-bold tracking-wider text-amber-900">SIMULATED XERO TRANSACTION — NOT POSTED TO XERO</span></div>
         <div className="shrink-0 border-b border-[#d6dade] bg-white px-6 pt-3 pb-3">
           <div className="mb-1 flex items-center gap-1 text-xs text-xr-blue">
             {crumbs.map((c, i) => (
@@ -75,6 +89,8 @@ export function XeroChrome({ crumbs, title, actions, children, active = 'Sales',
           </div>
         </div>
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">{children}</div>
+        </div>
+        </div>
       </div>
     </ProductFrame>
   )
@@ -174,6 +190,7 @@ export function InvoiceEditor() {
   const { state, run } = useDemo()
   const inv = state.xero.invoice
   const [lines, setLines] = useState<InvoiceLine[]>(inv?.lines ?? [])
+  const [confirmApprove, setConfirmApprove] = useState(false)
   useEffect(() => setLines(inv?.lines ?? []), [inv?.lines])
 
   if (!inv) {
@@ -199,9 +216,9 @@ export function InvoiceEditor() {
   const actions =
     inv.status === 'Draft' ? (
       <>
-        <button className={xSecondary} disabled={!dirty} onClick={() => run((s) => updateInvoiceLines(s, lines))}>Save draft</button>
-        <button className={xSecondary} onClick={() => { if (dirty) run((s) => updateInvoiceLines(s, lines)); run((s) => setInvoiceStatus(s, 'Awaiting Approval')) }}>Submit for approval</button>
-        <button className={xPrimary} onClick={() => { if (dirty) run((s) => updateInvoiceLines(s, lines)); run((s) => setInvoiceStatus(s, 'Awaiting Payment')) }}><Check size={15} /> Approve</button>
+        <button className={cn(xSecondary, 'border-xr-blue text-xr-blue')} disabled={!dirty} onClick={() => run((s) => updateInvoiceLines(s, lines))}>Save</button>
+        <button className={cn(xSecondary, 'border-xr-blue text-xr-blue')} onClick={() => { if (dirty) run((s) => updateInvoiceLines(s, lines)); run((s) => setInvoiceStatus(s, 'Awaiting Approval')) }}>Submit for approval <ChevronDown size={13} /></button>
+        <button className={xPrimary} onClick={() => setConfirmApprove(true)}><Check size={15} /> Approve draft</button>
       </>
     ) : inv.status === 'Awaiting Approval' ? (
       <>
@@ -221,11 +238,12 @@ export function InvoiceEditor() {
     <XeroChrome
       crumbs={[{ label: 'Sales overview' }, { label: 'Invoices', to: '/accounting' }]}
       title={<span className="flex items-center gap-3">Invoice {inv.number} <StatusPill status={inv.status} /></span>}
-      actions={<><span className="mr-2 inline-flex items-center gap-1 text-sm text-xr-blue">Invoice options <ChevronDown size={14} /></span>{actions}</>}
+      actions={<>{actions}<button className={cn(xSecondary, 'px-2')} aria-label="Invoice options">⋯</button></>}
     >
-      <div className="space-y-4 p-6">
+      <div className="grid gap-4 p-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="min-w-0 space-y-4">
         <div className="flex items-center gap-2 rounded border border-[#d9ccf5] bg-[#f6f2ff] px-4 py-2 text-xs text-[#4b2a99]">
-          <Zap size={14} /> Created by Zap 3 when HubSpot deal <Link className="font-semibold underline" to="/crm/deal">{IDS.hubspotDeal}</Link> was won (contract {IDS.contract} approved and signed) · Storage key <code>xero.invoice:{IDS.transaction}:deposit</code>
+          <Zap size={14} /> Created by Zap 3 from HubSpot deal <Link className="font-semibold underline" to="/crm/deal">{IDS.hubspotDeal}</Link> after the contract was approved and signed.
         </div>
 
         <StatusFlow status={inv.status} />
@@ -243,17 +261,16 @@ export function InvoiceEditor() {
             <span>Amounts are <b>Tax exclusive</b></span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-sm">
+            <table className="w-full min-w-[760px] table-fixed text-sm">
               <thead className="border-y border-[#d6dade] bg-[#f6f7f8] text-left text-xs text-slate-600">
                 <tr>
-                  <th className="w-24 px-3 py-2 font-semibold">Item</th>
+                  <th className="w-20 px-3 py-2 font-semibold">Item</th>
                   <th className="px-3 py-2 font-semibold">Description</th>
                   <th className="w-20 px-3 py-2 text-right font-semibold">Quantity</th>
                   <th className="w-32 px-3 py-2 text-right font-semibold">Unit price</th>
-                  <th className="w-48 px-3 py-2 font-semibold">Account</th>
+                  <th className="w-44 px-3 py-2 font-semibold">Account</th>
                   <th className="w-32 px-3 py-2 font-semibold">Tax</th>
-                  <th className="w-28 px-3 py-2 text-right font-semibold">Tax amount</th>
-                  <th className="w-32 px-3 py-2 text-right font-semibold">Amount VUV</th>
+                  <th className="w-32 px-3 py-2 text-right font-semibold">Amount</th>
                   <th className="w-8" />
                 </tr>
               </thead>
@@ -277,7 +294,6 @@ export function InvoiceEditor() {
                         <option>VAT 15%</option>
                       </select>
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{num(l.taxRate === 'VAT 15%' ? l.qty * l.unitPrice * VAT : 0)}</td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums">{num(l.qty * l.unitPrice)}</td>
                     <td className="py-2">{editable && <button onClick={() => setLines((ls) => ls.filter((x) => x.id !== l.id))} className="rounded p-1 text-slate-400 hover:text-rose-600" aria-label="Remove line"><Trash2 size={14} /></button>}</td>
                   </tr>
@@ -323,7 +339,44 @@ export function InvoiceEditor() {
           </table>
         </div>
       </div>
+      <AutomationPanel />
+      </div>
+      {confirmApprove && (
+        <div className="fixed inset-0 top-7 z-[60] flex items-center justify-center bg-[#000a1e]/40 p-4" onMouseDown={() => setConfirmApprove(false)}>
+          <div className="w-full max-w-md rounded bg-white shadow-2xl" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
+            <p className="border-b border-[#e6e9ec] px-5 py-3 font-semibold">Approve draft {inv.number}?</p>
+            <p className="px-5 py-4 text-sm text-slate-700">Finance approval moves the invoice to <b>Awaiting Payment</b>. In this demo nothing is posted to Xero.</p>
+            <div className="flex justify-end gap-2 border-t border-[#e6e9ec] bg-[#f6f7f8] px-5 py-3">
+              <button className={xSecondary} onClick={() => setConfirmApprove(false)}>Cancel</button>
+              <button className={xPrimary} onClick={() => { setConfirmApprove(false); if (dirty) run((s) => updateInvoiceLines(s, lines)); run((s) => setInvoiceStatus(s, 'Awaiting Payment')) }}>Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
     </XeroChrome>
+  )
+}
+
+/** Where this invoice came from and which checks Zap 3 ran before creating it. */
+function AutomationPanel() {
+  const { state } = useDemo()
+  const deal = state.hubspot.deals.find((d) => d.id === IDS.hubspotDeal)
+  const run = state.events.find((e) => e.idempotencyKey === `xero.invoice:${IDS.transaction}:deposit` && e.status === 'success')
+  const checks = ['Customer matched (email)', 'Lot ID matched', 'Amount validated', 'Duplicate invoice check passed']
+  return (
+    <aside className="h-fit rounded border border-[#d6dade] bg-white text-[13px]">
+      <p className="border-b border-[#e6e9ec] px-4 py-2.5 font-semibold">Invoice from automation</p>
+      <dl className="space-y-1.5 px-4 py-3">
+        <div className="grid grid-cols-[70px_1fr] gap-2"><dt className="text-slate-500">Source</dt><dd>HubSpot (via Zap 3)</dd></div>
+        <div className="grid grid-cols-[70px_1fr] gap-2"><dt className="text-slate-500">Deal</dt><dd><Link to="/crm/deal" className="text-xr-blue hover:underline">{deal?.name}</Link></dd></div>
+        <div className="grid grid-cols-[70px_1fr] gap-2"><dt className="text-slate-500">Trigger</dt><dd>Deal marked Closed Won</dd></div>
+        <div className="grid grid-cols-[70px_1fr] gap-2"><dt className="text-slate-500">Run</dt><dd>{run ? dateTime(run.at) : '—'}</dd></div>
+      </dl>
+      <ul className="space-y-1.5 border-t border-[#e6e9ec] px-4 py-3">
+        {checks.map((c) => <li key={c} className="flex items-center gap-2"><span className="flex size-4 items-center justify-center rounded-full bg-xr-green text-white"><Check size={10} strokeWidth={3.5} /></span>{c}</li>)}
+      </ul>
+      <p className="border-t border-[#e6e9ec] px-4 py-2.5 text-[11px] font-semibold tracking-wide text-rose-700">SIMULATED XERO TRANSACTION — NOT POSTED TO XERO</p>
+    </aside>
   )
 }
 

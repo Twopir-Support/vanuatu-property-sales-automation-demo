@@ -1,4 +1,5 @@
 import {
+  Monitor,
   ArrowLeft,
   ChevronDown,
   ChevronRight,
@@ -126,6 +127,7 @@ export default function Documents() {
   const navItems = [
     { Icon: Home, label: 'Home' },
     { Icon: HardDrive, label: 'My Drive' },
+    { Icon: Monitor, label: 'Computers' },
     { Icon: Users, label: 'Shared drives', active: true },
     { Icon: Users, label: 'Shared with me' },
     { Icon: Clock, label: 'Recent' },
@@ -136,6 +138,47 @@ export default function Documents() {
   ]
 
   const rows = searchResults ?? [...folders, ...docs]
+  // Tree rows: folders expand in place (default: 04 Contracts once it has files).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['gd-025-ctr']))
+  const kids = (id: string) => files.filter((x) => x.parentId === id).sort((a, b) => (a.type === 'folder' ? 0 : 1) - (b.type === 'folder' ? 0 : 1) || byName(a, b))
+  const toggleOpen = (id: string) => setExpanded((e) => { const n = new Set(e); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const renderRows = (f: DriveFile, depth: number): React.ReactNode[] => {
+    const isFolder = f.type === 'folder'
+    const children = isFolder ? kids(f.id) : []
+    const isOpen = isFolder && expanded.has(f.id) && !searchResults
+    const row = (
+      <tr key={f.id} onClick={() => setSelected(f.id)} onDoubleClick={() => open(f)} className={cn('group cursor-default border-b border-[#e1e3e1]', selected === f.id ? 'bg-gd-active' : 'hover:bg-[#f0f4f9]')}>
+        <td className="py-1.5 pl-2">
+          <span className="flex items-center gap-2" style={{ paddingLeft: depth * 28 }}>
+            {isFolder ? (
+              <button onClick={(e) => { e.stopPropagation(); toggleOpen(f.id) }} className="rounded p-0.5 text-gd-muted hover:bg-black/5" aria-label={isOpen ? 'Collapse folder' : 'Expand folder'}>
+                <ChevronRight size={15} className={cn('transition-transform', isOpen && 'rotate-90')} />
+              </button>
+            ) : <span className="w-5" />}
+            <FileIcon type={f.type} />
+            <button onClick={(e) => { e.stopPropagation(); open(f) }} className="pr-4 text-left font-medium break-all hover:underline">{f.name}</button>
+            {f.starred && <Star size={13} className="fill-gd-muted text-gd-muted" />}
+          </span>
+        </td>
+        <td className="hidden py-1.5 pr-4 lg:table-cell">
+          <span className="flex items-center gap-2 whitespace-nowrap">
+            <span className="flex size-6 items-center justify-center rounded-full bg-teal-700 text-[10px] text-white">{f.owner === 'Shared drive' ? 'SD' : initials(f.owner)}</span>
+            {f.owner === 'Sarah Williams' ? 'me' : f.owner}
+          </span>
+        </td>
+        <td className="hidden py-1.5 pr-4 whitespace-nowrap text-gd-muted md:table-cell">{driveDate(f.modifiedAt)}</td>
+        <td className="hidden py-1.5 pr-4 whitespace-nowrap text-gd-muted xl:table-cell">{isFolder ? '—' : sizeLabel(f.sizeKb)}</td>
+        <td className="py-1.5 whitespace-nowrap">
+          {isFolder ? <span className="text-xs text-gd-muted">{children.length === 0 ? 'Empty' : `${children.length} ${children.length === 1 ? 'item' : 'items'}`}</span>
+            : f.label ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', labelCls[f.label])}>{f.label}</span> : <span className="text-gd-muted">—</span>}
+        </td>
+        <td className="py-1.5 pr-2 text-right">
+          <button onClick={(e) => { e.stopPropagation(); run((s) => toggleStar(s, f.id)) }} className="rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-black/5" aria-label="Star"><Star size={16} className={f.starred ? 'fill-gd-muted' : ''} /></button>
+        </td>
+      </tr>
+    )
+    return isOpen ? [row, ...children.flatMap((c) => renderRows(c, depth + 1))] : [row]
+  }
 
   return (
     <ProductFrame product="Google Drive">
@@ -244,7 +287,7 @@ export default function Documents() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[#e1e3e1] text-left text-gd-muted">
-                        <th className="py-2.5 pl-3 font-medium">Name <span className="ml-0.5">↑</span></th>
+                        <th className="py-2.5 pl-9 font-medium">Name <span className="ml-0.5">↑</span></th>
                         <th className="hidden py-2.5 font-medium lg:table-cell">Owner</th>
                         <th className="hidden py-2.5 font-medium whitespace-nowrap md:table-cell">Last modified</th>
                         <th className="hidden py-2.5 font-medium whitespace-nowrap xl:table-cell">File size</th>
@@ -253,34 +296,7 @@ export default function Documents() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((f) => (
-                        <tr
-                          key={f.id}
-                          onClick={() => setSelected(f.id)}
-                          onDoubleClick={() => open(f)}
-                          className={cn('group cursor-default border-b border-[#e1e3e1]', selected === f.id ? 'bg-gd-active' : 'hover:bg-[#f0f4f9]')}
-                        >
-                          <td className="py-2 pl-3">
-                            <span className="flex items-center gap-3.5">
-                              <FileIcon type={f.type} />
-                              <button onClick={(e) => { e.stopPropagation(); open(f) }} className="pr-4 text-left font-medium break-all hover:underline">{f.name}</button>
-                              {f.starred && <Star size={13} className="fill-gd-muted text-gd-muted" />}
-                            </span>
-                          </td>
-                          <td className="hidden py-2 pr-4 lg:table-cell">
-                            <span className="flex items-center gap-2 whitespace-nowrap">
-                              <span className="flex size-6 items-center justify-center rounded-full bg-teal-700 text-[10px] text-white">{f.owner === 'Shared drive' ? 'SD' : initials(f.owner)}</span>
-                              {f.owner === 'Sarah Williams' ? 'me' : f.owner}
-                            </span>
-                          </td>
-                          <td className="hidden py-2 pr-4 whitespace-nowrap text-gd-muted md:table-cell">{driveDate(f.modifiedAt)}</td>
-                          <td className="hidden py-2 text-gd-muted xl:table-cell">{f.type === 'folder' ? '—' : sizeLabel(f.sizeKb)}</td>
-                          <td className="py-2">{f.label ? <span className={cn('rounded-md px-2 py-0.5 text-xs font-medium', labelCls[f.label])}>{f.label}</span> : <span className="text-gd-muted">—</span>}</td>
-                          <td className="py-2 pr-2 text-right">
-                            <button onClick={(e) => { e.stopPropagation(); run((s) => toggleStar(s, f.id)) }} className="rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-black/5" aria-label="Star"><Star size={16} className={f.starred ? 'fill-gd-muted' : ''} /></button>
-                          </td>
-                        </tr>
-                      ))}
+                      {rows.flatMap((f) => renderRows(f, 0))}
                     </tbody>
                   </table>
                 ) : (

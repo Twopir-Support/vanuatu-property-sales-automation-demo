@@ -1,7 +1,7 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { InvoiceEditor, InvoicesList } from './pages/Accounting'
-import Contracts from './pages/Contracts'
+import Contracts, { ContractApproval } from './pages/Contracts'
 import { ContactRecord, CrmIndex, DealRecord } from './pages/Crm'
 import Documents from './pages/Documents'
 import LotSales from './pages/LotSales'
@@ -31,6 +31,7 @@ export default function App() {
             <Route path="crm/deal" element={<DealRecord />} />
             <Route path="crm/contact" element={<ContactRecord />} />
             <Route path="contracts" element={<Contracts />} />
+            <Route path="contracts/approval" element={<ContractApproval />} />
             <Route path="documents" element={<Documents />} />
             <Route path="documents/:folderId" element={<Documents />} />
             <Route path="accounting" element={<InvoicesList />} />

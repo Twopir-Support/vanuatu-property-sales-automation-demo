@@ -1,4 +1,13 @@
 import {
+  BarChart3,
+  ChevronDown,
+  HelpCircle,
+  Home as HomeIcon,
+  Inbox as InboxIcon,
+  LayoutTemplate,
+  ListChecks,
+  Settings as SettingsIcon,
+  Users,
   ArrowLeft,
   ArrowRight,
   Bot,
@@ -107,49 +116,55 @@ export default function Workflow() {
 
   return (
     <ProductFrame product="Process Street">
-      <div className="flex min-h-0 flex-1 flex-col bg-white text-[#1f2937]">
-        {/* App bar */}
-        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-slate-200 bg-[#fbfcfd] px-4 text-[13px]">
-          <span className="flex size-6 items-center justify-center rounded bg-ps-blue text-white"><WorkflowIcon size={13} /></span>
-          <nav className="flex items-center gap-1.5 text-slate-500">
-            <span>Library</span><span>/</span><span>Sales</span><span>/</span>
-            <span className="font-medium text-slate-800">Residential Lot Sale</span>
-          </nav>
-          <Badge tone="slate">Workflow run</Badge>
-          <span className="font-mono text-[11px] text-slate-500">{IDS.processStreetRun}</span>
-          <div className="ml-auto flex items-center gap-1.5">
-            <div className="mr-1 flex -space-x-1.5">
-              {[USERS.sales, USERS.admin, USERS.director, USERS.finance].map((n) => <Avatar key={n} name={n} size={24} className="ring-2 ring-white" />)}
-            </div>
-            <Button size="sm" variant="ghost" onClick={() => setRightTab('activity')}><History size={14} /> Activity</Button>
-            <Button size="sm" variant="ghost"><Share2 size={14} /> Share</Button>
-          </div>
-        </div>
-
+      <div className="flex min-h-0 flex-1 bg-white text-[#1f2937]">
+      <PsAppNav />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Run header */}
-        <header className="flex shrink-0 flex-wrap items-end gap-x-6 gap-y-2 border-b border-slate-200 px-5 py-3">
-          <div className="min-w-0">
-            <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-slate-900">Lot Sale — LOT-025</h1>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Residential Lot Sale · started {dateTime(state.activity[state.activity.length - 1]?.at ?? new Date().toISOString())} by {USERS.sales} · run due {date('2026-12-15')}
-            </p>
+        <header className="shrink-0 border-b border-slate-200 bg-white px-6 pt-3 pb-3">
+          <nav className="mb-1.5 flex items-center gap-1.5 text-xs text-slate-500"><span className="hover:text-ps-blue">Runs</span><span>/</span><span>Residential Lot Sale</span></nav>
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-slate-900">Residential Lot Sale</h1>
+                <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', done === 8 ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-ps-blue')}>{done === 8 ? 'Completed' : 'In progress'}</span>
+              </div>
+              <p className="mt-0.5 text-sm text-slate-600">LOT-025 — {state.transaction.buyerName}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="mr-1 hidden -space-x-1.5 xl:flex">
+                {[USERS.sales, USERS.admin, USERS.director, USERS.finance].map((n) => <Avatar key={n} name={n} size={24} className="ring-2 ring-white" />)}
+              </div>
+              <Button size="sm" variant="ghost"><Share2 size={14} /> Share</Button>
+              <Button size="sm" variant="hubspot" onClick={sync} disabled={busy === 'sync'}>{busy === 'sync' ? <Spinner size={12} /> : <RefreshCw size={14} />} Sync to HubSpot</Button>
+              <ActionMenu
+                trigger={<span className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700">Actions <ChevronDown size={13} /></span>}
+                items={[
+                  { label: 'Save changes', onClick: save, disabled: !dirty },
+                  { label: 'View activity', onClick: () => setRightTab('activity') },
+                  { label: 'Run details', onClick: () => setRightTab('details') },
+                  { label: 'Open HubSpot deal', onClick: () => window.location.assign('#/crm/deal') },
+                ]}
+              />
+              <button onClick={() => complete(step)} disabled={step.status === 'complete' || step.kind === 'approval' || locked || !!busy} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ps-blue px-3.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50">
+                {busy === `complete-${step.id}` ? <Spinner size={12} /> : <Check size={14} />} Complete step
+              </button>
+            </div>
           </div>
-          <div className="min-w-56 flex-1 sm:max-w-xs">
-            <div className="mb-1 flex justify-between text-xs"><span className="font-medium">{done} of {state.steps.length} tasks completed</span><span className="text-slate-500">{pct}%</span></div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-ps-green transition-all duration-500" style={{ width: `${pct}%` }} /></div>
-          </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button size="sm" onClick={save} disabled={!dirty}><Save size={14} /> Save</Button>
-            <Button size="sm" variant="hubspot" onClick={sync} disabled={busy === 'sync'}>{busy === 'sync' ? <Spinner size={12} /> : <RefreshCw size={14} />} Sync to HubSpot</Button>
-            <Button size="sm" variant="success" onClick={() => complete(step)} disabled={step.status === 'complete' || step.kind === 'approval' || locked || !!busy}>
-              {busy === `complete-${step.id}` ? <Spinner size={12} /> : <Check size={14} />} Complete task
-            </Button>
+          <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-2 text-xs">
+            {([['Run ID', IDS.processStreetRun], ['Started by', USERS.sales], ['Due date', date('2026-12-15')]] as [string, string][]).map(([k, v]) => (
+              <div key={k}><p className="text-slate-500">{k}</p><p className={cn('font-medium text-slate-800', k === 'Run ID' && 'font-mono')}>{v}</p></div>
+            ))}
+            <div className="min-w-56 flex-1 sm:max-w-xs">
+              <div className="mb-1 flex justify-between"><span className="font-medium text-slate-700">{done} of {state.steps.length} tasks completed</span><span className="text-slate-500">{pct}%</span></div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-ps-green transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+            </div>
+            {dirty && <Button size="sm" variant="primary" onClick={save}><Save size={13} /> Save changes</Button>}
           </div>
         </header>
 
         <div className="flex min-h-0 flex-1">
           {/* Task list */}
-          <aside className="scroll-thin hidden w-[300px] shrink-0 overflow-y-auto border-r border-slate-200 bg-ps-sidebar md:block">
+          <aside className="scroll-thin hidden w-[280px] shrink-0 overflow-y-auto border-r border-slate-200 bg-white md:block">
             <div className="flex items-center justify-between px-4 pt-3 pb-1.5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
               <span>Tasks</span><span className="font-normal normal-case">{done}/{state.steps.length}</span>
             </div>
@@ -221,7 +236,7 @@ export default function Workflow() {
           </section>
 
           {/* Right panel */}
-          <aside className="scroll-thin hidden w-[300px] shrink-0 overflow-y-auto border-l border-slate-200 bg-white xl:block">
+          <aside className="scroll-thin hidden w-[270px] shrink-0 overflow-y-auto border-l border-slate-200 bg-white xl:block">
             <div className="sticky top-0 z-10 flex border-b border-slate-200 bg-white text-[13px]">
               {([['details', 'Run details', Info], ['automations', 'Integrations', Zap], ['activity', 'Activity', History]] as const).map(([k, l, I]) => (
                 <button key={k} onClick={() => setRightTab(k)} className={cn('flex flex-1 items-center justify-center gap-1 py-2.5', rightTab === k ? 'border-b-2 border-ps-blue font-medium text-ps-blue' : 'text-slate-500 hover:text-slate-800')}>
@@ -234,6 +249,7 @@ export default function Workflow() {
             {rightTab === 'activity' && <ActivityPanel />}
           </aside>
         </div>
+      </div>
       </div>
 
       <ConfirmDialog
@@ -263,7 +279,7 @@ function TaskRow({ step, state, active, busy, onSelect, onToggle, onComment, onA
           onClick={(e) => { e.stopPropagation(); if (canCheck || complete) onToggle() }}
           disabled={!canCheck && !complete}
           aria-label={complete ? `Uncomplete ${step.title}` : `Complete ${step.title}`}
-          className={cn('mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-[4px] border-2 transition-colors',
+          className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
             complete ? 'border-ps-green bg-ps-green text-white' : locked ? 'border-slate-200 bg-slate-100 text-slate-400' : 'border-slate-300 bg-white text-transparent hover:border-ps-green')}
         >
           {busy ? <Spinner size={10} className="text-ps-green" /> : locked ? <Lock size={10} /> : <Check size={12} strokeWidth={3} />}
@@ -531,7 +547,7 @@ function ApprovalTask() {
     <div className="overflow-hidden rounded-md border border-slate-200">
       <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-[13px]">
         <span className="font-semibold text-slate-700">Tasks to approve</span>
-        <span className="text-xs text-slate-500">Approver: {USERS.director}</span>
+        <span className="flex items-center gap-3 text-xs text-slate-500">Approver: {USERS.director}<Link to="/contracts/approval" className="font-medium text-ps-blue hover:underline">Open Contract Approval →</Link></span>
       </div>
       <div className="flex items-center gap-3 px-4 py-3">
         <FileText size={17} className="text-slate-400" />
@@ -715,5 +731,31 @@ function ActivityPanel() {
         </li>
       ))}
     </ul>
+  )
+}
+
+/** Process Street-style app navigation (original component, no vendor logo). */
+function PsAppNav() {
+  const items: [string, typeof Info, boolean, number?][] = [
+    ['Home', HomeIcon, false], ['Inbox', InboxIcon, false, 2], ['Workflows', WorkflowIcon, false], ['Runs', ListChecks, true], ['Reports', BarChart3, false], ['People', Users, false], ['Templates', LayoutTemplate, false],
+  ]
+  return (
+    <nav className="hidden w-[176px] shrink-0 flex-col bg-[#13253d] py-3 text-[13px] text-white/75 lg:flex" aria-label="Process Street">
+      <div className="mb-4 flex items-center gap-2 px-4 text-white">
+        <span className="flex size-6 items-center justify-center rounded bg-ps-blue"><WorkflowIcon size={13} /></span>
+        <span className="text-[15px] font-semibold tracking-tight">Process Street</span>
+      </div>
+      {items.map(([label, Icon, active, badge]) => (
+        <span key={label} className={cn('mx-2 flex items-center gap-2.5 rounded-md px-2.5 py-1.5', active ? 'bg-white/12 font-medium text-white' : 'hover:bg-white/5')}>
+          <Icon size={15} />{label}
+          {badge && <span className="ml-auto rounded-full bg-white/15 px-1.5 text-[10px]">{badge}</span>}
+        </span>
+      ))}
+      <div className="mt-auto">
+        {([['Help', HelpCircle], ['Settings', SettingsIcon]] as const).map(([label, Icon]) => (
+          <span key={label} className="mx-2 flex items-center gap-2.5 rounded-md px-2.5 py-1.5 hover:bg-white/5"><Icon size={15} />{label}</span>
+        ))}
+      </div>
+    </nav>
   )
 }

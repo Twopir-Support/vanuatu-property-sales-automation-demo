@@ -28,7 +28,7 @@ HubSpot's Xero data-sync app supports six currencies: USD, CAD, EUR, GBP, AUD an
 
 Screenshots show synthetic data at 1440 × 900. They were captured from the running app while it walked through Flows 1 → 2 → 3 with the guided demo.
 
-### Control center (our own UI)
+### Demo control center (our own navigation — not a vendor product)
 ![Control center](docs/screenshots/01-control-center.png)
 
 ### Process Street-style workflow run
@@ -41,23 +41,27 @@ Screenshots show synthetic data at 1440 × 900. They were captured from the runn
 |---|---|
 | ![Pipeline](docs/screenshots/04-hubspot-pipeline.png) | ![Deal record](docs/screenshots/05-hubspot-deal-record.png) |
 
-| “Possible duplicate contact found” | Deal Closed Won after signature |
+| Contact record | Deal Closed Won after signature |
 |---|---|
-| ![Duplicate dialog](docs/screenshots/06-hubspot-duplicate-dialog.png) | ![Closed Won](docs/screenshots/15-hubspot-closed-won.png) |
+| ![Contact record](docs/screenshots/28-hubspot-contact.png) | ![Closed Won](docs/screenshots/15-hubspot-closed-won.png) |
 
 ### Contract generation
 | Before generation (unmerged template) | Draft generated, validated |
 |---|---|
 | ![Contract before](docs/screenshots/07-contract-generator-before.png) | ![Contract draft](docs/screenshots/13-contract-generator-draft.png) |
 
-| Signed |
+| Contract Approval — LOT-025 | Signed |
+|---|---|
+| ![Contract approval](docs/screenshots/27-contract-approval.png) | ![Contract signed](docs/screenshots/18-contract-signed.png) |
+
+| Drive file-details drawer |
 |---|
-| ![Contract signed](docs/screenshots/18-contract-signed.png) |
+| ![Drive drawer](docs/screenshots/14b-drive-file-drawer.png) |
 
 ### Google Drive-style documents
-| Before Zap 2A (no LOT-025 folder) | 04 Contracts with file-details drawer |
+| Before Zap 2A (no LOT-025 folder) | Transaction folder (Zap 2A) as a folder tree |
 |---|---|
-| ![Drive before](docs/screenshots/08-drive-before-zap2a.png) | ![Drive drawer](docs/screenshots/14-drive-contracts-folder.png) |
+| ![Drive before](docs/screenshots/08-drive-before-zap2a.png) | ![Drive folder tree](docs/screenshots/14-drive-transaction-folder.png) |
 
 ### Xero-style accounting
 | Zap 3 rules not yet met | Draft INV-0025 (not posted to Xero) |
@@ -69,9 +73,13 @@ Screenshots show synthetic data at 1440 × 900. They were captured from the runn
 |---|---|
 | ![Zap 1 mapping](docs/screenshots/10-zapier-zap1-mapping.png) | ![Test successful](docs/screenshots/11-zapier-test-successful.png) |
 
-| Zap 3 business-rule filter | Guided demo bar |
+| Zap 3 business-rule filter | End-to-end overview (all Zaps) |
 |---|---|
-| ![Zap 3 filter](docs/screenshots/16-zapier-zap3-filter.png) | ![Guided demo](docs/screenshots/12-guided-demo-flow1.png) |
+| ![Zap 3 filter](docs/screenshots/16-zapier-zap3-filter.png) | ![End to end](docs/screenshots/29-zapier-end-to-end.png) |
+
+| “Possible duplicate contact found” | Guided demo bar |
+|---|---|
+| ![Duplicate dialog](docs/screenshots/06-hubspot-duplicate-dialog.png) | ![Guided demo](docs/screenshots/12-guided-demo-flow1.png) |
 
 ### Automation Monitor
 | Operations console | Retryable error drawer | Validation error (paused) |
@@ -103,6 +111,8 @@ Requires Node 18+. The build is a static site with hash routing, so `dist/` can 
 The quickest way in is **Guide** in the sidebar footer, or **Start guided demo** on the control center. A bar at the bottom walks through 14 steps. Each step opens the right screen, shows the line to say, and has a button that runs that step's Zap through the real engine:
 
 1. Control center → 2. Process Street CRM task (Zap 1) → 3. Zap 1 in the editor → 4. HubSpot buyer and deal matched → 5. Step 6 (Zap 2A) → 6. Contract draft → 7. Drive folder and documents → 8. Internal approval (Zap 2B) → 9. Buyer e-signature (Zap 2C) → 10. Deal Closed Won → 11. Zap 3 validation → 12. Xero draft invoice → 13. Automation Monitor → 14. AI roadmap.
+
+**Navigation:** product screens are shown full-width with no demo sidebar, like the real apps. Move between them with **Switch app** in the yellow demo banner. The sidebar appears only on the demo's own pages (control center, monitor, testing, docs). It is demo navigation, not a vendor product.
 
 **Interview Demo Mode** (sidebar footer) locks the laptop layout, opens the guide, and hides development-only controls: reset, uncomplete and the idempotency re-run buttons. The DEMO ENVIRONMENT banner stays.
 

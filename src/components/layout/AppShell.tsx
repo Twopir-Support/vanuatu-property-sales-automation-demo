@@ -1,5 +1,7 @@
 import {
+  ChevronDown,
   Activity,
+  ChevronsLeft,
   PlayCircle,
   Presentation,
   BookOpen,
@@ -21,14 +23,14 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useState, type ReactNode } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { COMPANY } from '../../data/ids'
 import { cn } from '../../lib/format'
 import { useDemo } from '../../store/DemoStore'
 import { hubspotHasPendingChanges } from '../../store/engine'
 import { Toaster } from '../ui/Toaster'
-import { ConfirmDialog } from '../ui/overlays'
+import { ActionMenu, ConfirmDialog } from '../ui/overlays'
 import { DemoGuide } from './DemoGuide'
 
 type NavItem = { to: string; label: string; Icon: typeof Activity; sub?: string; end?: boolean }
@@ -60,12 +62,39 @@ const NAV: { group?: string; items: NavItem[] }[] = [
   { items: [{ to: '/settings', label: 'Settings', Icon: Settings }] },
 ]
 
-export function DemoBanner() {
+export function DemoBanner({ switcher }: { switcher?: ReactNode }) {
   return (
     <div className="relative z-[70] flex min-h-7 shrink-0 items-center justify-center gap-2 bg-amber-400 px-3 py-1 text-center text-[10px] font-semibold tracking-wider text-amber-950 sm:text-[11px]" role="note">
+      {switcher && <div className="absolute top-1/2 left-2 -translate-y-1/2 tracking-normal">{switcher}</div>}
       <ShieldAlert size={13} />
       DEMO ENVIRONMENT · SYNTHETIC DATA · SIMULATED INTEGRATIONS
     </div>
+  )
+}
+
+/** Demo-only app switcher shown in the banner when a product screen is full-width (no demo sidebar). */
+function AppSwitcher({ onShowMenu }: { onShowMenu: () => void }) {
+  const navigate = useNavigate()
+  const go = (to: string) => () => navigate(to)
+  return (
+    <ActionMenu
+      align="left"
+      label="Switch app"
+      trigger={<span className="inline-flex items-center gap-1 rounded bg-amber-950/90 px-2 py-0.5 text-[11px] font-semibold text-amber-50">Switch app <ChevronDown size={12} /></span>}
+      items={[
+        { label: 'Demo control center (Overview)', onClick: go('/') },
+        { label: 'Process Street — workflow run', onClick: go('/workflow') },
+        { label: 'HubSpot — deal', onClick: go('/crm/deal') },
+        { label: 'HubSpot — contact', onClick: go('/crm/contact') },
+        { label: 'Contract generation', onClick: go('/contracts') },
+        { label: 'Contract approval', onClick: go('/contracts/approval') },
+        { label: 'Google Drive — transaction folder', onClick: go('/documents/GD-FLD-LOT025') },
+        { label: 'Zapier — Zaps', onClick: go('/zaps') },
+        { label: 'Xero — invoices', onClick: go('/accounting') },
+        { label: 'Automation Monitor', onClick: go('/monitor') },
+        { label: 'Show demo menu', onClick: onShowMenu },
+      ]}
+    />
   )
 }
 
@@ -80,18 +109,23 @@ export function AppShell() {
   }, [interviewMode])
   const loc = useLocation()
   const productView = /^\/(workflow|crm|documents|accounting|zaps|bills)/.test(loc.pathname)
+  const compactRoute = productView || loc.pathname.startsWith('/contracts')
   // Failures still awaiting a successful retry (a retried key is recorded in processedKeys).
   const failures = state.events.filter((e) => e.status === 'failed' && !state.processedKeys.includes(e.idempotencyKey)).length
   const pendingSync = hubspotHasPendingChanges(state)
 
+  // Product screens get the full width, like the real apps: the control-center menu collapses to icons.
+  const [expandOnProduct, setExpandOnProduct] = useState(false)
+  const compact = compactRoute && !expandOnProduct
   const sidebar = (
     <nav className="flex h-full w-60 flex-col bg-slate-900 text-slate-300">
       <div className="flex items-center gap-2.5 px-4 pt-3 pb-2">
         <img src="./favicon.svg" alt="" className="size-8" />
         <div className="leading-tight">
           <p className="text-sm font-semibold text-white">Property Sales Automation</p>
-          <p className="text-[11px] text-slate-400">{COMPANY.name} · {COMPANY.development}</p>
+          <p className="text-[11px] text-slate-400">Demo control center · {COMPANY.development}</p>
         </div>
+        {compactRoute && <button onClick={() => setExpandOnProduct(false)} className="ml-auto rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white" title="Collapse menu" aria-label="Collapse menu"><ChevronsLeft size={15} /></button>}
       </div>
       <div className="scroll-thin flex-1 space-y-0.5 overflow-y-auto px-2">
         {NAV.map((section, si) => (
@@ -140,9 +174,10 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <DemoBanner />
+      <DemoBanner switcher={compact ? <AppSwitcher onShowMenu={() => setExpandOnProduct(true)} /> : undefined} />
       <div className="flex min-h-0 flex-1">
-        <div className="hidden lg:block">{sidebar}</div>
+        {/* Product screens show only the product, like the real app; the demo menu lives in “Switch app”. */}
+        {!compact && <div className="hidden lg:block">{sidebar}</div>}
         {mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />

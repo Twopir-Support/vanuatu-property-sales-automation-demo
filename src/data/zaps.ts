@@ -29,19 +29,22 @@ export interface ZapStep {
   note?: string
   /** Source field → destination field, shown as mapping pills. */
   mappings?: [string, string][]
+  /** Overview only: whether this stage has happened for LOT-025. */
+  done?: (s: DemoState) => boolean
   /** Data this step outputs for the LOT-025 test record. */
   output?: (s: DemoState) => Record<string, unknown>
 }
 
 export interface ZapDef {
   id: string
-  flow: 1 | 2 | 3 | 4
+  flow: 0 | 1 | 2 | 3 | 4
   name: string
   summary: string
   steps: ZapStep[]
 }
 
 export const FLOWS: { n: ZapDef['flow']; title: string; lines: string[] }[] = [
+  { n: 0, title: 'End-to-end overview', lines: ['The whole lot-sale chain on one canvas. In Zapier it runs as linked Zaps (1 → 2A → 2B → 2C → 3), because approval and signature are separate events that arrive later.'] },
   { n: 1, title: 'Flow 1 · Checklist → HubSpot', lines: ['Process Street: salesperson completes the lot-sale checklist — buyer details, lot ID, price and required documents.', 'HubSpot: find or create the buyer and deal, using stable identifiers to avoid duplicates.'] },
   { n: 2, title: 'Flow 2 · Contract → review → signature → Drive', lines: ['HubSpot: the buyer and deal found in Flow 1 are the source for the contract.', 'Document generation: populate the approved sale-contract template, then route it for review and signature.', 'Google Drive: create the transaction folder and save the draft, approved and signed contract plus supporting documents.'] },
   { n: 3, title: 'Flow 3 · Deal won → Xero', lines: ['HubSpot: when the deal is won, Zap 3 starts.', 'Xero: create the draft accounting transaction only when the business rules and approval conditions are met.'] },
@@ -52,6 +55,19 @@ const deal = (s: DemoState) => s.hubspot.deals.find((d) => d.id === IDS.hubspotD
 const contact = (s: DemoState) => s.hubspot.contacts.find((c) => c.id === IDS.hubspotContact)!
 
 export const ZAPS: ZapDef[] = [
+  {
+    id: 'flow', flow: 0, name: 'Process Street → HubSpot → Contract → Drive → Xero',
+    summary: 'Overview of Zaps 1–3 for LOT-025. Ticks show which stages have already run for this transaction.',
+    steps: [
+      { app: 'Process Street', kind: 'trigger', event: 'New task completed', fields: [['Zap', 'Zap 1 trigger · step 5 checked']], done: (s) => s.hubspot.lastSyncedHash !== '' },
+      { app: 'HubSpot', kind: 'action', event: 'Find or create contact and deal', fields: [['Zap', 'Zap 1 · Buyer ID / email · deal key']], done: (s) => s.hubspot.lastSyncedHash !== '' },
+      { app: 'Google Docs', kind: 'action', event: 'Create sale contract', fields: [['Zap', 'Zap 2A · template v2.1']], done: (s) => s.contract.status !== 'Not generated' },
+      { app: 'Google Drive', kind: 'action', event: 'Upload document to folder', fields: [['Zap', 'Zap 2A · LOT-025 — Alex Morgan › 04 Contracts']], done: (s) => s.drive.files.some((f) => f.id === IDS.driveFolder) },
+      { app: 'E-signature', kind: 'action', event: 'Wait for contract approval and signature', fields: [['Zap', 'Zaps 2B and 2C']], done: (s) => s.contract.signature === 'Signed' },
+      { app: 'HubSpot', kind: 'action', event: 'Deal stage = Closed Won', fields: [['Zap', 'Zap 2C → triggers Zap 3']], done: (s) => s.hubspot.deals.some((d) => d.id === IDS.hubspotDeal && d.stage === 'Closed Won') },
+      { app: 'Xero', kind: 'action', event: 'Create draft invoice', fields: [['Zap', 'Zap 3 · only when every rule passes']], done: (s) => !!s.xero.invoice },
+    ],
+  },
   {
     id: 'z1', flow: 1, name: ZAP.z1,
     summary: 'When the salesperson checks “CRM record synchronized”, find or create the buyer contact and the lot deal in HubSpot — never duplicate either.',

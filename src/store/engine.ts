@@ -850,3 +850,13 @@ export function regenerateContract(s: DemoState, user: string): Result {
   state = addActivity(state, 'contracts', user, `Regenerated ${IDS.contract} as v${v}`)
   return { state, notice: { kind: 'success', title: `Draft v${v} generated`, message: 'Send it for review when ready.' } }
 }
+
+/** Reviewer rejects the draft outright: it goes back to the sales rep and must be regenerated. */
+export function rejectContract(s: DemoState, user: string, reason: string): Result {
+  if (s.contract.status !== 'Generated') return { state: s, notice: { kind: 'warning', title: 'Only a draft in review can be rejected' } }
+  const now = nowIso()
+  let state: DemoState = { ...s, contract: { ...s.contract, reviewRequestedAt: undefined, comments: [{ at: now, user, text: `Rejected — ${reason}` }, ...s.contract.comments] } }
+  state = addTimeline(state, { type: 'task', title: 'Contract rejected — regenerate required', body: reason, actor: user })
+  state = addActivity(state, 'contracts', user, `Rejected ${IDS.contract} v${s.contract.version}: “${reason}”`)
+  return { state, notice: { kind: 'warning', title: 'Contract rejected', message: 'Returned to the sales rep. Regenerate the draft after fixing the data.' } }
+}
